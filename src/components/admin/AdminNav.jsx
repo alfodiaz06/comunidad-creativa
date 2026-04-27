@@ -1,11 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BookOpen, Users, LayoutDashboard, LogOut, ChevronRight, Shield, Flame } from 'lucide-react';
+import { BookOpen, Users, LayoutDashboard, LogOut, ChevronRight, Shield, Flame, Truck } from 'lucide-react';
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/admin/courses', label: 'Cursos', icon: BookOpen },
   { to: '/admin/users', label: 'Usuarios', icon: Users },
+  { to: '/admin/logistics', label: 'Logística', icon: Truck },
 ];
 
 export default function AdminNav() {
@@ -54,7 +55,7 @@ export default function AdminNav() {
             <div className="text-xs font-display font-semibold text-slate-200 truncate">{profile?.displayName || 'Admin'}</div>
             <div className="text-xs text-slate-500 truncate font-mono">{profile?.email}</div>
           </div>
-          <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors p-1" title="Salir">
+          <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors p-1">
             <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
