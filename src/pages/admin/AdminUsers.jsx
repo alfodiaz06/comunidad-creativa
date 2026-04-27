@@ -9,7 +9,7 @@ import { apiCreateUser, apiDeleteUser } from '../../lib/api';
 import AdminNav from '../../components/admin/AdminNav';
 import {
   Plus, Pencil, Trash2, X, Check, Users,
-  Shield, User, Search, RefreshCw
+  Shield, User, Search, Copy, Eye, EyeOff, RefreshCw
 } from 'lucide-react';
 
 function generatePassword() {
@@ -25,6 +25,9 @@ function UserModal({ user, courses, onClose, onSave }) {
     disabled: user?.disabled || false,
   });
   const [assignedCourseIds, setAssignedCourseIds] = useState([]);
+  const [password, setPassword] = useState(() => generatePassword());
+  const [showPass, setShowPass] = useState(true);
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,11 +38,17 @@ function UserModal({ user, courses, onClose, onSave }) {
   const toggleCourse = (id) =>
     setAssignedCourseIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
+  const copyPassword = () => {
+    navigator.clipboard.writeText(password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleSave = async () => {
     if (!form.email || !form.displayName) { setError('Nombre y correo son requeridos.'); return; }
     setLoading(true);
     try {
-      await onSave(user?.id, form, assignedCourseIds);
+      await onSave(user?.id, form, assignedCourseIds, password);
       onClose();
     } catch (err) {
       setError(err.message);
@@ -59,13 +68,6 @@ function UserModal({ user, courses, onClose, onSave }) {
         <div className="overflow-y-auto flex-1 p-5 space-y-4">
           {error && <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
-          {!user && (
-            <div className="p-4 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-body flex items-start gap-2">
-              <span className="text-lg">✨</span>
-              <span>La cuenta se creará automáticamente en Firebase. Solo ingresa los datos y haz clic en Guardar.</span>
-            </div>
-          )}
-
           <div>
             <label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Nombre completo</label>
             <input className="input-field" value={form.displayName}
@@ -78,6 +80,40 @@ function UserModal({ user, courses, onClose, onSave }) {
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
               placeholder="juan@correo.com" disabled={!!user} />
           </div>
+
+          {/* Contraseña — solo para nuevos usuarios */}
+          {!user && (
+            <div>
+              <label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">
+                Contraseña de acceso
+              </label>
+              <div className="relative">
+                <input
+                  className="input-field pr-28 font-mono text-sm tracking-wider"
+                  type={showPass ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                  <button type="button" onClick={() => setPassword(generatePassword())}
+                    className="p-1.5 text-slate-500 hover:text-brand-400 transition-colors" title="Regenerar">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                  <button type="button" onClick={() => setShowPass(s => !s)}
+                    className="p-1.5 text-slate-500 hover:text-slate-200 transition-colors">
+                    {showPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                  <button type="button" onClick={copyPassword}
+                    className={`p-1.5 transition-colors ${copied ? 'text-jade-400' : 'text-slate-500 hover:text-brand-400'}`} title="Copiar">
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+              <div className="mt-2 p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-xs font-body text-brand-300">
+                📋 <strong>Copia esta contraseña</strong> para enviársela al estudiante junto con su correo. La cuenta se creará automáticamente.
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -148,9 +184,8 @@ export default function AdminUsers() {
 
   useEffect(() => { load(); }, []);
 
-  const handleSave = async (userId, form, courseIds) => {
+  const handleSave = async (userId, form, courseIds, password) => {
     if (userId) {
-      // Update existing user profile
       await updateUserProfile(userId, form);
       const currentIds = await getUserAssignedCourses(userId);
       const toAdd = courseIds.filter(id => !currentIds.includes(id));
@@ -160,15 +195,12 @@ export default function AdminUsers() {
         ...toRemove.map(id => removeCourseFromUser(userId, id)),
       ]);
     } else {
-      // Auto-create user in Firebase Auth + Firestore via Netlify Function
-      const password = generatePassword();
       const result = await apiCreateUser({
         email: form.email,
         password,
         displayName: form.displayName,
         role: form.role,
       });
-      // Assign courses
       if (result.uid) {
         await Promise.all(courseIds.map(id => assignCourseToUser(result.uid, id)));
       }
@@ -181,7 +213,6 @@ export default function AdminUsers() {
     try {
       await apiDeleteUser(userId);
     } catch {
-      // If API fails (e.g. temp user), delete from Firestore only
       const { deleteUserProfile } = await import('../../lib/db');
       await deleteUserProfile(userId);
     }
