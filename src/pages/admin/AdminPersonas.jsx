@@ -4,7 +4,7 @@ import { getAllCourses, getUserAssignedCourses, assignCourseToUser, removeCourse
 import { getAccounts, getStudents, saveStudent, deleteStudent, removeStudentFromAccount, assignStudentToAccount, statusAccount, fmt, month, money, today, uid, add30 } from '../../lib/logistics';
 import { apiCreateUser } from '../../lib/api';
 import AdminNav from '../../components/admin/AdminNav';
-import { Plus, Pencil, Trash2, X, Check, Search, Calendar, Copy, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Search, Calendar, Copy, AlertCircle, RefreshCw } from 'lucide-react';
 
 function generatePassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
@@ -180,6 +180,7 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
     whatsapp: person?.whatsapp || '',
     email: person?.email || '',
     startDate: person?.startDate || today(),
+    expiresAt: person?.expiresAt || add30(person?.startDate || today()),
     accountId: person?.accountId || availableAccounts[0]?.id || '',
     role: person?.role || 'student',
     disabled: person?.disabled || false,
@@ -229,7 +230,9 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
               <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">WhatsApp</label>
                 <input className="input-field font-mono" value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="3001234567"/></div>
               <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Fecha de inicio</label>
-                <input className="input-field text-sm" type="date" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))}/></div>
+                <input className="input-field text-sm" type="date" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value,expiresAt:add30(e.target.value)}))}/></div>
+              <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Fecha de vencimiento</label>
+                <input className="input-field text-sm" type="date" value={form.expiresAt} onChange={e=>setForm(f=>({...f,expiresAt:e.target.value}))}/></div>
             </div>
             <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Cuenta logística asignada</label>
               <select className="input-field" value={form.accountId} onChange={e=>setForm(f=>({...f,accountId:e.target.value}))}>
@@ -385,7 +388,13 @@ export default function AdminPersonas() {
     const acc=accounts.find(a=>a.id===st.accountId);
     const pay=(st.payments||[]).find(p=>p.month===m);
     const total=(st.payments||[]).filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
-    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, accountId:st.accountId, accountEmail:acc?.email||'—', payments:st.payments||[], paid:pay?.paid||false, payAmount:pay?.amount||((st.payments||[]).length>1?60000:80000), totalPaid:total, role:st.role||'student', disabled:st.disabled||false, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'' };
+    const expiresAt = st.expiresAt || add30(st.startDate || today());
+    const now = new Date(); now.setHours(0,0,0,0);
+    const exp = new Date(expiresAt); exp.setHours(0,0,0,0);
+    const daysLeft = Math.round((exp - now) / 86400000);
+    const isExpired = daysLeft < 0;
+    const expiresLabel = isExpired ? `Venció hace ${Math.abs(daysLeft)} día${Math.abs(daysLeft)!==1?'s':''}` : daysLeft===0 ? 'Vence hoy' : `Vence en ${daysLeft} día${daysLeft!==1?'s':''}`;
+    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments:st.payments||[], paid:pay?.paid||false, payAmount:pay?.amount||((st.payments||[]).length>1?60000:80000), totalPaid:total, role:st.role||'student', disabled:st.disabled||isExpired, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'' };
   });
 
   const filtered = persons.filter(p=>{
@@ -403,7 +412,7 @@ export default function AdminPersonas() {
     if(existing){
       const st=students.find(s=>s.id===existing.studentId);
       if(!st) return;
-      const updated={...st,name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,role:form.role,disabled:form.disabled,courseIds,accessPassword:password};
+      const updated={...st,name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,expiresAt:form.expiresAt,role:form.role,disabled:form.disabled,courseIds,accessPassword:password};
       if(form.accountId!==st.accountId){
         await removeStudentFromAccount(accounts,st.id);
         updated.accountId=form.accountId||null;
@@ -427,7 +436,7 @@ export default function AdminPersonas() {
           if(uid_firebase&&courseIds.length>0) await Promise.all(courseIds.map(id=>assignCourseToUser(uid_firebase,id)));
         }catch(e){ console.warn('Auth:',e.message); }
       }
-      const newSt={id:uid(),name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,accountId:form.accountId||null,payments:[],deletedAt:null,role:form.role,disabled:form.disabled,uid:uid_firebase,courseIds,accessPassword:password};
+      const newSt={id:uid(),name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,expiresAt:form.expiresAt,accountId:form.accountId||null,payments:[],deletedAt:null,role:form.role,disabled:form.disabled,uid:uid_firebase,courseIds,accessPassword:password};
       await saveStudent(newSt);
       if(form.accountId) await assignStudentToAccount(accounts,form.accountId,newSt.id);
     }
@@ -448,6 +457,18 @@ export default function AdminPersonas() {
     const st=students.find(s=>s.id===person.studentId); if(!st) return;
     await removeStudentFromAccount(accounts,st.id);
     await saveStudent({...st,deletedAt:new Date().toISOString(),accountId:null});
+    await load();
+  };
+
+  const handleRenew = async (person) => {
+    const st = students.find(s=>s.id===person.studentId); if(!st) return;
+    const newExpiry = add30(today());
+    const updated = { ...st, expiresAt: newExpiry, disabled: false };
+    await saveStudent(updated);
+    // Re-enable in Firestore if has uid
+    if(st.uid) {
+      await updateUserProfile(st.uid, { disabled: false });
+    }
     await load();
   };
 
@@ -487,7 +508,7 @@ export default function AdminPersonas() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead><tr className="border-b border-white/5">
-                    {['Persona','WhatsApp','Cuenta','Inicio','Total',`${m}`,'Acciones'].map(h=>(
+                    {['Persona','WhatsApp','Cuenta','Vencimiento','Total',`${m}`,'Acciones'].map(h=>(
                       <th key={h} className="px-4 py-3 text-left text-xs font-mono text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr></thead>
@@ -515,11 +536,25 @@ export default function AdminPersonas() {
                         </td>
                         <td className="px-4 py-3 font-mono text-sm text-slate-300">{p.whatsapp}</td>
                         <td className="px-4 py-3 font-mono text-xs text-slate-400 max-w-[140px] truncate">{p.accountEmail}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-500">{fmt(p.startDate)}</td>
+                        <td className="px-4 py-3">
+                          <div className={`text-xs font-mono ${p.isExpired?'text-red-400':p.daysLeft<=5?'text-amber-400':'text-slate-400'}`}>
+                            {fmt(p.expiresAt)}
+                          </div>
+                          <div className={`text-xs font-mono mt-0.5 ${p.isExpired?'text-red-400':p.daysLeft<=5?'text-amber-400':'text-slate-500'}`}>
+                            {p.expiresLabel}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 font-mono text-sm text-jade-400">{money(p.totalPaid)}</td>
                         <td className="px-4 py-3"><PayBadge paid={p.paid}/></td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 flex-wrap">
+                            {/* Renovar button - shown when expired or expiring soon */}
+                            {(p.isExpired || p.daysLeft <= 5) && (
+                              <button onClick={()=>handleRenew(p)}
+                                className="px-2 py-1 rounded-lg text-xs font-display font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 transition-all whitespace-nowrap">
+                                🔄 Renovar
+                              </button>
+                            )}
                             <button onClick={()=>handleTogglePay(p)}
                               className={`px-2 py-1 rounded-lg text-xs font-display font-semibold transition-all whitespace-nowrap
                                 ${p.paid?'bg-white/5 text-slate-400 hover:bg-white/10':'bg-jade-500/15 text-jade-400 hover:bg-jade-500/25'}`}>
