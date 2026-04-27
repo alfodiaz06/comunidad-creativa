@@ -318,13 +318,28 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
               setLoading(true);
               try{
                 const {apiCreateUser} = await import('../../lib/api');
-                const result = await apiCreateUser({email:form.email, password, displayName:form.displayName, role:form.role||'student'});
-                // Update student record with uid
                 const {getStudents, saveStudent} = await import('../../lib/logistics');
+                const {assignCourseToUser, createUserProfile} = await import('../../lib/db');
+
+                // 1. Create Firebase Auth + Firestore profile via Cloud Function
+                const result = await apiCreateUser({
+                  email: form.email,
+                  password,
+                  displayName: form.displayName,
+                  role: form.role || 'student'
+                });
+
+                // 2. Assign selected courses
+                if(assignedCourseIds.length > 0){
+                  await Promise.all(assignedCourseIds.map(id => assignCourseToUser(result.uid, id)));
+                }
+
+                // 3. Update student record with uid and email
                 const sts = await getStudents();
                 const st = sts.find(s=>s.id===person.studentId);
-                if(st) await saveStudent({...st, uid:result.uid, email:form.email, accessPassword:password});
-                alert(`✅ Acceso creado para ${form.email}. Ya puede iniciar sesión.`);
+                if(st) await saveStudent({...st, uid:result.uid, email:form.email, accessPassword:password, courseIds:assignedCourseIds});
+
+                alert(`✅ Acceso creado para ${form.email}. Ya puede iniciar sesión y ver sus clases.`);
                 onClose();
               }catch(err){setError('Error: '+err.message);}
               finally{setLoading(false);}
