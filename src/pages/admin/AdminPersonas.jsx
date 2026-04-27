@@ -212,11 +212,11 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
           <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
         </div>
         <div className="flex gap-1 px-5 pt-4">
-          {['info','logistica','acceso'].map(s=>(
+          {['info','acceso'].map(s=>(
             <button key={s} onClick={()=>setSection(s)}
               className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all capitalize
                 ${section===s?'bg-brand-500/15 text-brand-300 border border-brand-500/20':'text-slate-500 hover:bg-white/5'}`}>
-              {s==='info'?'Información':s==='logistica'?'Logística':'Acceso'}
+              {s==='info'?'Información':'Acceso'}
             </button>
           ))}
         </div>
@@ -232,6 +232,15 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
               <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Fecha de inicio</label>
                 <input className="input-field text-sm" type="date" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))}/></div>
             </div>
+            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Cuenta logística asignada</label>
+              <select className="input-field" value={form.accountId} onChange={e=>setForm(f=>({...f,accountId:e.target.value}))}>
+                <option value="">Sin cuenta</option>
+                {availableAccounts.map(a=>{
+                  const free=Object.values(a.slots||{}).filter(s=>s===null).length;
+                  return <option key={a.id} value={a.id}>{a.email} ({free} libre{free!==1?'s':''})</option>;
+                })}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Rol</label>
                 <select className="input-field" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
@@ -244,19 +253,6 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
                   <option value="disabled">Deshabilitado</option>
                 </select></div>
             </div>
-          </>}
-
-          {section==='logistica'&&<>
-            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Cuenta logística asignada</label>
-              <select className="input-field" value={form.accountId} onChange={e=>setForm(f=>({...f,accountId:e.target.value}))}>
-                <option value="">Sin cuenta</option>
-                {availableAccounts.map(a=>{
-                  const free=Object.values(a.slots||{}).filter(s=>s===null).length;
-                  return <option key={a.id} value={a.id}>{a.email} ({free} libre{free!==1?'s':''})</option>;
-                })}
-              </select>
-            </div>
-            <p className="text-xs text-slate-500">Solo se muestran cuentas con slots disponibles y no bloqueadas.</p>
           </>}
 
           {section==='acceso'&&<>

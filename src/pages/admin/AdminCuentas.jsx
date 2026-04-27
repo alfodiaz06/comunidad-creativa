@@ -17,7 +17,6 @@ function PayBadge({ paid, m }) {
 
 function AccountModal({ account, onClose, onSave }) {
   const [form, setForm] = useState({ email:account?.email||'', password:account?.password||'', twoFactorKey:account?.twoFactorKey||'', createdAt:account?.createdAt||today(), expiresAt:account?.expiresAt||add30(today()) });
-  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const handleSave = async () => {
     if(!form.email||!form.password) return;
@@ -36,10 +35,7 @@ function AccountModal({ account, onClose, onSave }) {
           <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Correo principal</label>
             <input className="input-field font-mono" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="cuenta@gmail.com"/></div>
           <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Contraseña</label>
-            <div className="relative">
-              <input className="input-field font-mono pr-10" type={showPass?'text':'password'} value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/>
-              <button onClick={()=>setShowPass(s=>!s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">{showPass?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}</button>
-            </div></div>
+            <input className="input-field font-mono" type='text' value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/></div>
           <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Clave 2FA</label>
             <input className="input-field font-mono" value={form.twoFactorKey} onChange={e=>setForm(f=>({...f,twoFactorKey:e.target.value}))} placeholder="XXXX-XXXX-XXXX"/></div>
           <div className="grid grid-cols-2 gap-3">
@@ -124,13 +120,52 @@ function EditStudentModal({ student, onClose, onSave }) {
   );
 }
 
+// ── New Student directly from slot
+function NewStudentForAccountModal({ accountId, accounts, onClose, onSave }) {
+  const [form, setForm] = useState({ name:'', whatsapp:'', email:'', startDate:today() });
+  const [loading, setLoading] = useState(false);
+  const acc = accounts.find(a=>a.id===accountId);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-strong rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm animate-slide-up">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div>
+            <h3 className="font-display font-semibold text-white">➕ Agregar estudiante</h3>
+            {acc&&<p className="text-xs font-mono text-slate-500 mt-0.5">{acc.email}</p>}
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Nombre completo</label>
+            <input className="input-field" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Nombre completo" autoFocus/></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">WhatsApp</label>
+              <input className="input-field font-mono" value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="3001234567"/></div>
+            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Fecha de inicio</label>
+              <input className="input-field text-sm" type="date" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))}/></div>
+          </div>
+          <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Correo (opcional)</label>
+            <input className="input-field" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="correo@gmail.com"/></div>
+        </div>
+        <div className="p-5 border-t border-white/5 flex gap-3 justify-end">
+          <button onClick={onClose} className="btn-ghost">Cancelar</button>
+          <button onClick={async()=>{if(!form.name||!form.whatsapp)return;setLoading(true);try{await onSave(form);}finally{setLoading(false);}}}
+            disabled={loading||!form.name||!form.whatsapp} className="btn-primary flex items-center gap-2">
+            {loading?<div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"/>:<Check className="w-4 h-4"/>}
+            Agregar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminCuentas() {
   const [accounts, setAccounts] = useState([]);
   const [students, setStudents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [modal, setModal] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showPass, setShowPass] = useState(false);
   const m = month();
 
   const load = useCallback(async () => {
@@ -252,17 +287,16 @@ export default function AdminCuentas() {
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
                 {[
                   {label:'Correo', val:currentAcc.email, copy:currentAcc.email},
-                  {label:'Contraseña', val:showPass?currentAcc.password:'••••••••', copy:currentAcc.password, toggle:()=>setShowPass(s=>!s), isPass:true},
+                  {label:'Contraseña', val:currentAcc.password, copy:currentAcc.password},
                   {label:'Clave 2FA', val:currentAcc.twoFactorKey||'—', copy:currentAcc.twoFactorKey},
                   {label:'Creada', val:fmt(currentAcc.createdAt)},
                   {label:'Vence', val:fmt(currentAcc.expiresAt)},
-                ].map(({label,val,copy,toggle,isPass})=>(
+                ].map(({label,val,copy})=>(
                   <div key={label} className="card p-3">
                     <div className="text-xs font-mono text-slate-500 mb-1.5 uppercase">{label}</div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-mono text-slate-200 break-all leading-snug">{val}</span>
                       {copy&&copy!=='—'&&<button onClick={()=>navigator.clipboard.writeText(copy)} className="text-brand-400 hover:text-brand-300"><Copy className="w-3 h-3"/></button>}
-                      {isPass&&<button onClick={toggle} className="text-slate-500 hover:text-slate-300">{showPass?<EyeOff className="w-3 h-3"/>:<Eye className="w-3 h-3"/>}</button>}
                     </div>
                   </div>
                 ))}
@@ -287,10 +321,12 @@ export default function AdminCuentas() {
                   const st=sid?active.find(s=>s.id===sid):null;
                   const pay=st?(st.payments||[]).find(p=>p.month===m):null;
                   if(!st) return (
-                    <div key={i} className={`card border-dashed border-white/10 flex flex-col items-center justify-center gap-2 min-h-[130px] text-slate-600 ${currentAcc.blocked?'opacity-50':''}`}>
-                      {currentAcc.blocked?<Lock className="w-4 h-4"/>:<Plus className="w-4 h-4"/>}
-                      <span className="text-xs">{currentAcc.blocked?'Bloqueado':`Slot ${parseInt(i)+1} libre`}</span>
-                    </div>
+                    <button key={i} onClick={()=>!currentAcc.blocked&&setModal({type:'newStudent',accountId:currentAcc.id})}
+                      className={`card border-dashed border-white/10 flex flex-col items-center justify-center gap-2 min-h-[130px] w-full transition-all
+                        ${currentAcc.blocked?'opacity-50 cursor-not-allowed':'hover:border-brand-500/40 hover:bg-brand-500/5 cursor-pointer'}`}>
+                      {currentAcc.blocked?<Lock className="w-4 h-4"/>:<Plus className="w-5 h-5 text-slate-500"/>}
+                      <span className="text-xs text-slate-500">{currentAcc.blocked?'Bloqueado':`+ Agregar estudiante`}</span>
+                    </button>
                   );
                   return (
                     <div key={i} className="card min-h-[130px] flex flex-col justify-between group">
@@ -327,6 +363,21 @@ export default function AdminCuentas() {
       {modal?.type==='renew'&&<RenewModal account={modal.acc} onClose={()=>setModal(null)} onSave={handleRenew}/>}
       {modal?.type==='editStudent'&&(
         <EditStudentModal student={modal.student} onClose={()=>setModal(null)} onSave={(form)=>handleEditStudent(modal.student,form)}/>
+      )}
+      {modal?.type==='newStudent'&&(
+        <NewStudentForAccountModal
+          accountId={modal.accountId}
+          accounts={accounts}
+          onClose={()=>setModal(null)}
+          onSave={async(form)=>{
+            const { uid: uidFn, saveStudent: saveSt, assignStudentToAccount: assign } = await import('../../lib/logistics');
+            const newSt={id:uidFn(),name:form.name,whatsapp:form.whatsapp,email:form.email||'',startDate:form.startDate,accountId:modal.accountId,payments:[],deletedAt:null};
+            await saveSt(newSt);
+            await assign(accounts, modal.accountId, newSt.id);
+            await load();
+            setModal(null);
+          }}
+        />
       )}
     </div>
   );
