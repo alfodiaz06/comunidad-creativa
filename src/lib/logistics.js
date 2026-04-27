@@ -1,11 +1,28 @@
-// ── Logistics DB service using Firestore ──────────────────────────────────────
-import { db } from './firebase';
-import {
-  collection, doc, getDoc, getDocs, setDoc, updateDoc,
-  deleteDoc, query, where, orderBy, serverTimestamp
-} from 'firebase/firestore';
+// ── Logistics DB — Firebase Realtime Database (Gemini Mgr)
+const RTDB = 'https://registro-clientes-67d06-default-rtdb.firebaseio.com';
 
-const uid = () => 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const rtdb = {
+  async read(path) {
+    const r = await fetch(`${RTDB}/${path}.json`);
+    if (!r.ok && r.status !== 404) throw new Error('Error leyendo datos');
+    return r.json();
+  },
+  async write(path, data) {
+    const r = await fetch(`${RTDB}/${path}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!r.ok) throw new Error('Error guardando datos');
+    return r.json();
+  },
+  async del(path) {
+    await fetch(`${RTDB}/${path}.json`, { method: 'DELETE' });
+  },
+};
+
+// ── Utils
+export const uid = () => 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 export const today = () => new Date().toISOString().slice(0, 10);
 export const add30 = d => { const dt = new Date(d); dt.setDate(dt.getDate() + 30); return dt.toISOString().slice(0, 10); };
 export const fmt = d => { if (!d) return '—'; const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y}`; };
@@ -30,47 +47,40 @@ function normalizeSlots(a) {
   return a;
 }
 
-// ── ACCOUNTS ─────────────────────────────────────────────────────────────────
-
-export const getAccounts = async () => {
-  const snap = await getDocs(collection(db, 'logistics_accounts'));
-  return snap.docs.map(d => normalizeSlots({ id: d.id, ...d.data() }));
-};
-
-export const saveAccount = async (acc) => {
-  const id = acc.id || uid();
-  await setDoc(doc(db, 'logistics_accounts', id), { ...acc, id, updatedAt: serverTimestamp() });
-  return id;
-};
-
-export const deleteAccount = async (id) => {
-  await deleteDoc(doc(db, 'logistics_accounts', id));
-};
-
-// ── STUDENTS ─────────────────────────────────────────────────────────────────
-
-function normPayments(s) {
-  if (!s.payments) s.payments = [];
+function normalizePayments(s) {
+  if (!s.payments) { s.payments = []; return s; }
   if (!Array.isArray(s.payments)) s.payments = Object.values(s.payments);
   return s;
 }
 
+// ── ACCOUNTS
+export const getAccounts = async () => {
+  const d = await rtdb.read('accounts');
+  if (!d) return [];
+  return Object.values(d).map(normalizeSlots);
+};
+export const saveAccount = async (acc) => rtdb.write(`accounts/${acc.id}`, acc);
+export const deleteAccount = async (id) => rtdb.del(`accounts/${id}`);
+
+// ── STUDENTS
 export const getStudents = async () => {
-  const snap = await getDocs(collection(db, 'logistics_students'));
-  return snap.docs.map(d => normPayments({ id: d.id, ...d.data() }));
+  const d = await rtdb.read('students');
+  if (!d) return [];
+  return Object.values(d).map(normalizePayments);
 };
+export const saveStudent = async (st) => rtdb.write(`students/${st.id}`, st);
+export const deleteStudent = async (id) => rtdb.del(`students/${id}`);
 
-export const saveStudent = async (st) => {
-  const id = st.id || uid();
-  await setDoc(doc(db, 'logistics_students', id), { ...st, id, updatedAt: serverTimestamp() });
-  return id;
+// ── ADS
+export const getAds = async () => {
+  const d = await rtdb.read('ads');
+  if (!d) return [];
+  return Object.values(d);
 };
+export const saveAd = async (ad) => rtdb.write(`ads/${ad.id}`, ad);
+export const deleteAd = async (id) => rtdb.del(`ads/${id}`);
 
-export const deleteStudent = async (id) => {
-  await deleteDoc(doc(db, 'logistics_students', id));
-};
-
-// Slot assignment helpers
+// ── Slot helpers
 export const assignStudentToAccount = async (accounts, accountId, studentId) => {
   const acc = accounts.find(a => a.id === accountId);
   if (!acc) return;
@@ -89,21 +99,4 @@ export const removeStudentFromAccount = async (accounts, studentId) => {
       return;
     }
   }
-};
-
-// ── ADS ───────────────────────────────────────────────────────────────────────
-
-export const getAds = async () => {
-  const snap = await getDocs(collection(db, 'logistics_ads'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-};
-
-export const saveAd = async (ad) => {
-  const id = ad.id || uid();
-  await setDoc(doc(db, 'logistics_ads', id), { ...ad, id });
-  return id;
-};
-
-export const deleteAd = async (id) => {
-  await deleteDoc(doc(db, 'logistics_ads', id));
 };
