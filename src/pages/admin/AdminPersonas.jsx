@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAllCourses, getUserAssignedCourses, assignCourseToUser, removeCourseFromUser } from '../../lib/db';
+import { getAllCourses, getUserAssignedCourses, assignCourseToUser, removeCourseFromUser, updateUserProfile } from '../../lib/db';
 import { getAccounts, getStudents, saveStudent, deleteStudent, removeStudentFromAccount, assignStudentToAccount, statusAccount, fmt, month, money, today, uid, add30 } from '../../lib/logistics';
 import { apiCreateUser } from '../../lib/api';
 import AdminNav from '../../components/admin/AdminNav';
@@ -415,6 +415,8 @@ export default function AdminPersonas() {
         const toAdd=courseIds.filter(id=>!currentCourses.includes(id));
         const toRemove=currentCourses.filter(id=>!courseIds.includes(id));
         await Promise.all([...toAdd.map(id=>assignCourseToUser(st.uid,id)),...toRemove.map(id=>removeCourseFromUser(st.uid,id))]);
+        // Sync disabled status to Firestore so login is blocked/unblocked immediately
+        await updateUserProfile(st.uid, { disabled: form.disabled, role: form.role });
       }
     } else {
       let uid_firebase=null;
@@ -491,14 +493,22 @@ export default function AdminPersonas() {
                   </tr></thead>
                   <tbody className="divide-y divide-white/5">
                     {filtered.map(p=>(
-                      <tr key={p.studentId} className="hover:bg-white/2 transition-colors">
+                      <tr key={p.studentId} className={`hover:bg-white/2 transition-colors ${p.disabled?'opacity-60':''}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-brand-500/15 border border-brand-500/20 flex items-center justify-center text-brand-400 font-bold text-xs flex-shrink-0">
-                              {p.displayName[0].toUpperCase()}
+                            <div className="relative flex-shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-brand-500/15 border border-brand-500/20 flex items-center justify-center text-brand-400 font-bold text-xs">
+                                {p.displayName[0].toUpperCase()}
+                              </div>
+                              {p.disabled && (
+                                <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-obsidian-900" title="Deshabilitado"/>
+                              )}
                             </div>
                             <div>
-                              <div className="font-display text-sm text-slate-200">{p.displayName}</div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-display text-sm text-slate-200">{p.displayName}</span>
+                                {p.disabled && <span className="text-xs font-mono text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full">Inactivo</span>}
+                              </div>
                               <div className="text-xs font-mono text-slate-500">{p.email||'Sin correo'}</div>
                             </div>
                           </div>
