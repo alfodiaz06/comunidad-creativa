@@ -256,7 +256,7 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
 
           {section==='acceso'&&<>
             <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Correo electrónico</label>
-              <input className="input-field" type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="correo@gmail.com" disabled={!!person?.uid}/></div>
+              <input className="input-field" type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="correo@gmail.com"/></div>
 
             <div>
               <label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">
