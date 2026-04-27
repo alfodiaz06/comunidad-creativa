@@ -1005,7 +1005,18 @@ export default function AdminLogistics() {
                             className="px-3 py-1.5 rounded-lg text-xs font-display font-semibold bg-jade-500/15 text-jade-400 border border-jade-500/20 hover:bg-jade-500/25 transition-all">
                             Restaurar
                           </button>
-                          <button onClick={async()=>{if(!confirm(`¿Eliminar permanentemente a "${st.name}"?`)) return;await deleteStudent(st.id);await load();}}
+                          <button onClick={async()=>{
+                            if(!confirm(`¿Eliminar permanentemente a "${st.name}"? Esto también eliminará su acceso a la plataforma.`)) return;
+                            // Delete from Firebase Auth if has uid
+                            if(st.uid){
+                              try{
+                                const {apiDeleteUser} = await import('../../lib/api');
+                                await apiDeleteUser(st.uid);
+                              }catch(e){ console.warn('Auth delete:', e.message); }
+                            }
+                            await deleteStudent(st.id);
+                            await load();
+                          }}
                             className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                             <Trash2 className="w-3.5 h-3.5"/>
                           </button>
