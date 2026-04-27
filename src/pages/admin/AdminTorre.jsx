@@ -135,7 +135,7 @@ export default function AdminTorre() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-xs px-1.5 py-0.5 rounded-md bg-brand-500/10 text-brand-400 font-mono">{ad.platform||'Otro'}</span>
-                            <span className="text-xs font-body text-slate-300 truncate">{ad.name}</span>
+                            <span className="text-xs font-body text-slate-300 truncate">{ad.name||ad.description||ad.desc||'Sin descripción'}</span>
                           </div>
                           <div className="text-xs font-mono text-slate-500 mt-0.5">{fmt(ad.date)}</div>
                         </div>

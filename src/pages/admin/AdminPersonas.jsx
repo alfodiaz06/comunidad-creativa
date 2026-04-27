@@ -338,7 +338,11 @@ export default function AdminPersonas() {
   });
 
   const filtered = persons.filter(p=>{
-    if(search&&!p.displayName?.toLowerCase().includes(search.toLowerCase())&&!p.whatsapp?.includes(search)&&!p.email?.toLowerCase().includes(search.toLowerCase())) return false;
+    if(search){
+      const q=search.toLowerCase();
+      const matches=p.displayName?.toLowerCase().includes(q)||p.whatsapp?.includes(search)||p.email?.toLowerCase().includes(q)||p.accountEmail?.toLowerCase().includes(q);
+      if(!matches) return false;
+    }
     if(filter==='paid') return p.paid;
     if(filter==='pending') return !p.paid;
     return true;
