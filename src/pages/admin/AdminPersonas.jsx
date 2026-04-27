@@ -275,6 +275,20 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
               </p>
             </div>
 
+            {/* Existing student WITHOUT Firebase Auth account */}
+            {person && !person.uid && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs space-y-2">
+                <p>⚠️ Esta persona <strong>no tiene acceso</strong> a la plataforma todavía.</p>
+                <p>Ingresa su correo y contraseña arriba, luego haz clic en <strong>"Crear acceso"</strong> para activarla.</p>
+              </div>
+            )}
+
+            {person && person.uid && (
+              <div className="p-3 rounded-xl bg-jade-500/10 border border-jade-500/20 text-jade-300 text-xs">
+                ✅ Esta persona ya tiene acceso activo a la plataforma.
+              </div>
+            )}
+
             {!person&&(
               <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs">✨ La cuenta de acceso se creará automáticamente con este correo y contraseña.</div>
             )}
@@ -295,8 +309,30 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
             </div>
           </>}
         </div>
-        <div className="p-5 border-t border-white/5 flex gap-3 justify-end">
+        <div className="p-5 border-t border-white/5 flex gap-3 justify-end flex-wrap">
           <button onClick={onClose} className="btn-ghost">Cancelar</button>
+          {/* Button to create Firebase Auth for existing student without access */}
+          {person && !person.uid && form.email && section === 'acceso' && (
+            <button onClick={async()=>{
+              if(!form.email||!password){setError('Ingresa correo y contraseña primero.');return;}
+              setLoading(true);
+              try{
+                const {apiCreateUser} = await import('../../lib/api');
+                const result = await apiCreateUser({email:form.email, password, displayName:form.displayName, role:form.role||'student'});
+                // Update student record with uid
+                const {getStudents, saveStudent} = await import('../../lib/logistics');
+                const sts = await getStudents();
+                const st = sts.find(s=>s.id===person.studentId);
+                if(st) await saveStudent({...st, uid:result.uid, email:form.email, accessPassword:password});
+                alert(`✅ Acceso creado para ${form.email}. Ya puede iniciar sesión.`);
+                onClose();
+              }catch(err){setError('Error: '+err.message);}
+              finally{setLoading(false);}
+            }} disabled={loading} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-display font-semibold bg-jade-500/15 text-jade-400 border border-jade-500/20 hover:bg-jade-500/25 transition-all">
+              {loading?<div className="w-4 h-4 rounded-full border-2 border-jade-400/30 border-t-jade-400 animate-spin"/>:<Check className="w-4 h-4"/>}
+              Crear acceso
+            </button>
+          )}
           <button onClick={handleSave} disabled={loading||!form.displayName} className="btn-primary flex items-center gap-2">
             {loading?<div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"/>:<Check className="w-4 h-4"/>}
             {loading?'Guardando...':'Guardar'}
