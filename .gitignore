@@ -1,0 +1,12 @@
+# Env
+.env
+.env.local
+.env.production
+
+# Build
+dist/
+node_modules/
+
+# Editor
+.DS_Store
+*.log
