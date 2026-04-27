@@ -3,12 +3,12 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA-DAC6U99thD6Vy3uuAdkqXfYxrr3w83Q",
-  authDomain: "eduvault-prod.firebaseapp.com",
-  projectId: "eduvault-prod",
-  storageBucket: "eduvault-prod.firebasestorage.app",
-  messagingSenderId: "445324796415",
-  appId: "1:445324796415:web:677fffe4421b5ea9f747ca",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
