@@ -54,7 +54,7 @@ function CourseModal({ course, onClose, onSave }) {
                   onClick={() => setForm(f => ({ ...f, emoji: e }))}
                   className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all
                     ${form.emoji === e
-                      ? 'bg-aurora-500/20 border-2 border-aurora-500 scale-110'
+                      ? 'bg-brand-500/20 border-2 border-brand-500 scale-110'
                       : 'bg-obsidian-700 border border-white/10 hover:border-white/20'
                     }`}
                 >
@@ -177,7 +177,7 @@ export default function AdminCourses() {
                     <span className="text-xs font-mono text-slate-600">{course.totalLessons || 0} lecciones</span>
                     <Link
                       to={`/admin/courses/${course.id}/edit`}
-                      className="flex items-center gap-1 text-xs text-aurora-400 hover:text-aurora-300 transition-colors font-body"
+                      className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 transition-colors font-body"
                     >
                       Editar contenido <ChevronRight className="w-3 h-3" />
                     </Link>

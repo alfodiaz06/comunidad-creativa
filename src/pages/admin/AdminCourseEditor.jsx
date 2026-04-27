@@ -214,7 +214,7 @@ function ModuleEditor({ courseId, module, onUpdate, onDelete }) {
           )}
           <button
             onClick={() => setLessonModal('create')}
-            className="flex items-center gap-2 text-xs text-aurora-400 hover:text-aurora-300 transition-colors py-1.5 px-3 rounded-lg hover:bg-aurora-500/5 font-body"
+            className="flex items-center gap-2 text-xs text-brand-400 hover:text-brand-300 transition-colors py-1.5 px-3 rounded-lg hover:bg-brand-500/5 font-body"
           >
             <Plus className="w-3.5 h-3.5" /> Añadir lección
           </button>
@@ -325,9 +325,9 @@ export default function AdminCourseEditor() {
 
               <button
                 onClick={handleAddModule}
-                className="w-full py-3.5 rounded-2xl border border-dashed border-white/10 hover:border-aurora-500/40
-                  text-slate-500 hover:text-aurora-400 flex items-center justify-center gap-2
-                  transition-all duration-200 hover:bg-aurora-500/5 font-body text-sm"
+                className="w-full py-3.5 rounded-2xl border border-dashed border-white/10 hover:border-brand-500/40
+                  text-slate-500 hover:text-brand-400 flex items-center justify-center gap-2
+                  transition-all duration-200 hover:bg-brand-500/5 font-body text-sm"
               >
                 <Plus className="w-4 h-4" /> Añadir módulo
               </button>

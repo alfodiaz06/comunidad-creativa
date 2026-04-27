@@ -25,10 +25,7 @@ export const getAllUsers = async () => {
 };
 
 export const updateUserProfile = async (uid, data) => {
-  await updateDoc(doc(db, 'users', uid), {
-    ...data,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() });
 };
 
 export const deleteUserProfile = async (uid) => {
@@ -39,9 +36,7 @@ export const deleteUserProfile = async (uid) => {
 
 export const createCourse = async (data) => {
   const ref = await addDoc(collection(db, 'courses'), {
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   });
   return ref.id;
 };
@@ -57,10 +52,7 @@ export const getAllCourses = async () => {
 };
 
 export const updateCourse = async (courseId, data) => {
-  await updateDoc(doc(db, 'courses', courseId), {
-    ...data,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(doc(db, 'courses', courseId), { ...data, updatedAt: serverTimestamp() });
 };
 
 export const deleteCourse = async (courseId) => {
@@ -71,8 +63,7 @@ export const deleteCourse = async (courseId) => {
 
 export const createModule = async (courseId, data) => {
   const ref = await addDoc(collection(db, 'courses', courseId, 'modules'), {
-    ...data,
-    createdAt: serverTimestamp(),
+    ...data, createdAt: serverTimestamp(),
   });
   return ref.id;
 };
@@ -113,58 +104,66 @@ export const getLessons = async (courseId, moduleId) => {
 };
 
 export const updateLesson = async (courseId, moduleId, lessonId, data) => {
-  await updateDoc(
-    doc(db, 'courses', courseId, 'modules', moduleId, 'lessons', lessonId),
-    data
-  );
+  await updateDoc(doc(db, 'courses', courseId, 'modules', moduleId, 'lessons', lessonId), data);
 };
 
 export const deleteLesson = async (courseId, moduleId, lessonId) => {
-  await deleteDoc(
-    doc(db, 'courses', courseId, 'modules', moduleId, 'lessons', lessonId)
-  );
+  await deleteDoc(doc(db, 'courses', courseId, 'modules', moduleId, 'lessons', lessonId));
 };
 
-// ─── PROGRESS ────────────────────────────────────────────────────────────────
+// ─── PROGRESS ─────────────────────────────────────────────────────────────────
+// Uses setDoc with merge:true so it works for both create and update
 
 export const markLessonComplete = async (userId, courseId, lessonId, completed = true) => {
   const progressId = `${userId}_${courseId}_${lessonId}`;
-  await setDoc(doc(db, 'progress', progressId), {
-    userId,
-    courseId,
-    lessonId,
-    completed,
-    completedAt: completed ? serverTimestamp() : null,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
+  await setDoc(
+    doc(db, 'progress', progressId),
+    {
+      userId,
+      courseId,
+      lessonId,
+      completed,
+      completedAt: completed ? serverTimestamp() : null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 };
 
 export const getUserCourseProgress = async (userId, courseId) => {
-  const snap = await getDocs(
-    query(
-      collection(db, 'progress'),
-      where('userId', '==', userId),
-      where('courseId', '==', courseId),
-      where('completed', '==', true)
-    )
-  );
-  return snap.docs.map(d => d.data().lessonId);
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, 'progress'),
+        where('userId', '==', userId),
+        where('courseId', '==', courseId),
+        where('completed', '==', true)
+      )
+    );
+    return snap.docs.map(d => d.data().lessonId);
+  } catch (err) {
+    console.error('Error getting progress:', err);
+    return [];
+  }
 };
 
 export const getAllUserProgress = async (userId) => {
-  const snap = await getDocs(
-    query(collection(db, 'progress'), where('userId', '==', userId), where('completed', '==', true))
-  );
-  return snap.docs.map(d => d.data());
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'progress'), where('userId', '==', userId), where('completed', '==', true))
+    );
+    return snap.docs.map(d => d.data());
+  } catch (err) {
+    console.error('Error getting all progress:', err);
+    return [];
+  }
 };
 
 // ─── COURSE ASSIGNMENTS ───────────────────────────────────────────────────────
 
 export const assignCourseToUser = async (userId, courseId) => {
   await setDoc(doc(db, 'assignments', `${userId}_${courseId}`), {
-    userId,
-    courseId,
-    assignedAt: serverTimestamp(),
+    userId, courseId, assignedAt: serverTimestamp(),
   });
 };
 

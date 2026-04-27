@@ -23,7 +23,7 @@ function CourseCard({ course, completedLessons, totalLessons }) {
         )}
       </div>
 
-      <h3 className="font-display font-semibold text-white text-base mb-1 group-hover:text-aurora-300 transition-colors">
+      <h3 className="font-display font-semibold text-white text-base mb-1 group-hover:text-brand-300 transition-colors">
         {course.title}
       </h3>
       <p className="text-slate-500 text-xs font-body line-clamp-2 mb-4">
@@ -33,14 +33,14 @@ function CourseCard({ course, completedLessons, totalLessons }) {
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <span className="text-xs font-mono text-slate-500">{completedLessons}/{totalLessons} lecciones</span>
-          <span className="text-xs font-mono text-aurora-400">{pct}%</span>
+          <span className="text-xs font-mono text-brand-400">{pct}%</span>
         </div>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${pct}%` }} />
         </div>
       </div>
 
-      <div className="flex items-center gap-1 mt-4 text-xs text-slate-500 group-hover:text-aurora-400 transition-colors">
+      <div className="flex items-center gap-1 mt-4 text-xs text-slate-500 group-hover:text-brand-400 transition-colors">
         Continuar <ChevronRight className="w-3 h-3" />
       </div>
     </Link>
@@ -96,7 +96,7 @@ export default function StudentDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10 animate-slide-up">
           {[
-            { icon: BookOpen, label: 'Cursos asignados', value: courses.length, color: 'text-aurora-400' },
+            { icon: BookOpen, label: 'Cursos asignados', value: courses.length, color: 'text-brand-400' },
             { icon: BarChart2, label: 'Lecciones completadas', value: totalCompleted, color: 'text-jade-400' },
             { icon: Clock, label: 'En progreso', value: courses.filter(c => {
               const done = progressMap[c.id]?.size || 0;

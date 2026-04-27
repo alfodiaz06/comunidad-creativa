@@ -41,7 +41,7 @@ export default function AdminDashboard() {
               { icon: BookOpen, label: 'Cursos creados', value: stats.courses, color: 'jade', link: '/admin/courses' },
               { icon: TrendingUp, label: 'Plataforma activa', value: '✓', color: 'ember', link: null },
             ].map(({ icon: Icon, label, value, color, link }) => {
-              const colorMap = { aurora: 'text-aurora-400 bg-aurora-500/10 border-aurora-500/20', jade: 'text-jade-400 bg-jade-500/10 border-jade-500/20', ember: 'text-ember-400 bg-ember-500/10 border-ember-500/20' };
+              const colorMap = { aurora: 'text-brand-400 bg-brand-500/10 border-brand-500/20', jade: 'text-jade-400 bg-jade-500/10 border-jade-500/20', ember: 'text-ember-400 bg-ember-500/10 border-ember-500/20' };
               const card = (
                 <div className={`card flex items-center gap-4 ${link ? 'cursor-pointer hover:bg-obsidian-700/60 transition-colors' : ''}`}>
                   <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${colorMap[color]}`}>
@@ -63,8 +63,8 @@ export default function AdminDashboard() {
           {/* Quick actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             <Link to="/admin/courses" className="card-hover flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-aurora-500/10 border border-aurora-500/20 flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-aurora-400" />
+              <div className="w-10 h-10 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-brand-400" />
               </div>
               <div>
                 <div className="font-display font-semibold text-white text-sm">Gestionar cursos</div>
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
           <div className="card">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-display font-semibold text-white text-sm">Usuarios recientes</h2>
-              <Link to="/admin/users" className="text-xs text-aurora-400 hover:text-aurora-300 transition-colors font-body">
+              <Link to="/admin/users" className="text-xs text-brand-400 hover:text-brand-300 transition-colors font-body">
                 Ver todos →
               </Link>
             </div>
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
                       <div className="text-sm font-display text-slate-200 truncate">{u.displayName || '–'}</div>
                       <div className="text-xs font-mono text-slate-500 truncate">{u.email}</div>
                     </div>
-                    <span className={u.role === 'admin' ? 'badge-aurora' : 'badge bg-white/5 text-slate-500 border border-white/10'}>
+                    <span className={u.role === 'admin' ? 'badge-brand' : 'badge bg-white/5 text-slate-500 border border-white/10'}>
                       {u.role || 'student'}
                     </span>
                   </div>

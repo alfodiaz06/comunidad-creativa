@@ -3,53 +3,35 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
-
-  html {
-    scroll-behavior: smooth;
-  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
 
   body {
     @apply bg-obsidian-900 text-slate-200 font-body antialiased;
     background-image: 
-      radial-gradient(ellipse at 20% 50%, rgba(108, 92, 231, 0.06) 0%, transparent 60%),
-      radial-gradient(ellipse at 80% 20%, rgba(46, 232, 154, 0.04) 0%, transparent 50%);
+      radial-gradient(ellipse at 20% 50%, rgba(255, 124, 0, 0.07) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(255, 149, 0, 0.04) 0%, transparent 50%);
     min-height: 100vh;
   }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    @apply bg-obsidian-800;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-obsidian-500 rounded-full;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-aurora-600;
-  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-obsidian-800; }
+  ::-webkit-scrollbar-thumb { @apply bg-obsidian-500 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-brand-600; }
 }
 
 @layer components {
   .glass {
     @apply bg-obsidian-800/60 backdrop-blur-sm border border-white/5;
   }
-
   .glass-strong {
     @apply bg-obsidian-800/90 backdrop-blur-md border border-white/10;
   }
 
   .btn-primary {
-    @apply bg-aurora-500 hover:bg-aurora-400 text-white font-display font-semibold 
+    @apply bg-brand-500 hover:bg-brand-400 text-white font-display font-semibold 
            px-5 py-2.5 rounded-xl transition-all duration-200 
-           hover:shadow-lg hover:shadow-aurora-500/25 hover:-translate-y-0.5
+           hover:shadow-lg hover:shadow-brand-500/30 hover:-translate-y-0.5
            active:translate-y-0 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed
            disabled:hover:translate-y-0 disabled:hover:shadow-none;
   }
@@ -68,7 +50,7 @@
   .input-field {
     @apply w-full bg-obsidian-700 border border-white/10 rounded-xl px-4 py-3
            text-slate-200 placeholder-slate-500 font-body text-sm
-           focus:outline-none focus:border-aurora-500/60 focus:ring-1 focus:ring-aurora-500/30
+           focus:outline-none focus:border-brand-500/60 focus:ring-1 focus:ring-brand-500/30
            transition-all duration-200;
   }
 
@@ -84,8 +66,8 @@
     @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium;
   }
 
-  .badge-aurora {
-    @apply badge bg-aurora-500/15 text-aurora-400 border border-aurora-500/20;
+  .badge-brand {
+    @apply badge bg-brand-500/15 text-brand-400 border border-brand-500/20;
   }
 
   .badge-jade {
@@ -96,13 +78,16 @@
     @apply badge bg-ember-500/15 text-ember-400 border border-ember-500/20;
   }
 
+  /* Keep aurora aliases pointing to brand */
+  .badge-aurora { @apply badge-brand; }
+
   .sidebar-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-body
            transition-all duration-200 cursor-pointer;
   }
 
   .sidebar-item-active {
-    @apply sidebar-item bg-aurora-500/15 text-aurora-300 border border-aurora-500/20;
+    @apply sidebar-item bg-brand-500/15 text-brand-300 border border-brand-500/20;
   }
 
   .sidebar-item-inactive {
@@ -114,7 +99,7 @@
   }
 
   .progress-fill {
-    @apply h-full rounded-full bg-gradient-to-r from-aurora-500 to-jade-500 transition-all duration-500;
+    @apply h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-300 transition-all duration-500;
   }
 
   .shimmer-loading {
@@ -138,12 +123,17 @@
   border-radius: 12px;
   background: #000;
 }
-
 .video-wrapper iframe {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   border: none;
+}
+
+/* Mobile sidebar overlay */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 30;
 }
