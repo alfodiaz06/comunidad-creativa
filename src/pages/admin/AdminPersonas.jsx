@@ -4,7 +4,7 @@ import { getAllCourses, getUserAssignedCourses, assignCourseToUser, removeCourse
 import { getAccounts, getStudents, saveStudent, deleteStudent, removeStudentFromAccount, assignStudentToAccount, statusAccount, fmt, month, money, today, uid, add30 } from '../../lib/logistics';
 import { apiCreateUser } from '../../lib/api';
 import AdminNav from '../../components/admin/AdminNav';
-import { Plus, Pencil, Trash2, X, Check, Search, Calendar, Eye, EyeOff, Copy, RefreshCw, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Search, Calendar, Copy, AlertCircle } from 'lucide-react';
 
 function generatePassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
@@ -184,8 +184,7 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
     role: person?.role || 'student',
     disabled: person?.disabled || false,
   });
-  const [password] = useState(generatePassword());
-  const [showPass, setShowPass] = useState(false);
+  const [password, setPassword] = useState(person?.accessPassword || generatePassword());
   const [copied, setCopied] = useState(false);
   const [assignedCourseIds, setAssignedCourseIds] = useState(person?.courseIds || []);
   const [loading, setLoading] = useState(false);
@@ -258,23 +257,28 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
           {section==='acceso'&&<>
             <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Correo electrónico</label>
               <input className="input-field" type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="correo@gmail.com" disabled={!!person?.uid}/></div>
-            {!person?(
-              <>
-                <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs">✨ La cuenta de acceso se creará automáticamente.</div>
-                <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Contraseña generada</label>
-                  <div className="relative">
-                    <input className="input-field font-mono text-sm pr-24" type={showPass?'text':'password'} value={password} readOnly/>
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                      <button onClick={()=>setShowPass(s=>!s)} className="p-1.5 text-slate-500 hover:text-slate-200">{showPass?<EyeOff className="w-3.5 h-3.5"/>:<Eye className="w-3.5 h-3.5"/>}</button>
-                      <button onClick={copyPassword} className={`p-1.5 transition-colors ${copied?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>{copied?<Check className="w-3.5 h-3.5"/>:<Copy className="w-3.5 h-3.5"/>}</button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1.5">📋 Copia esta contraseña para enviársela.</p>
-                </div>
-              </>
-            ):(
-              <div className="p-3 rounded-xl bg-obsidian-700 text-xs text-slate-400 font-mono">Para cambiar contraseña ve a Firebase Console → Authentication.</div>
+
+            <div>
+              <label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">
+                {person ? 'Contraseña de acceso' : 'Contraseña generada automáticamente'}
+              </label>
+              <div className="relative">
+                <input className="input-field font-mono text-sm pr-10" type="text" value={password}
+                  onChange={e=>setPassword(e.target.value)}/>
+                <button onClick={()=>{navigator.clipboard.writeText(password);setCopied(true);setTimeout(()=>setCopied(false),2000);}}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${copied?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                  {copied?<Check className="w-3.5 h-3.5"/>:<Copy className="w-3.5 h-3.5"/>}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-1.5">
+                {person ? '📋 Esta es la contraseña guardada. Cópiala si necesitas enviársela.' : '📋 Copia esta contraseña para enviársela al estudiante.'}
+              </p>
+            </div>
+
+            {!person&&(
+              <div className="p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs">✨ La cuenta de acceso se creará automáticamente con este correo y contraseña.</div>
             )}
+
             <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Cursos asignados</label>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {courses.map(c=>(
@@ -330,7 +334,7 @@ export default function AdminPersonas() {
     const acc=accounts.find(a=>a.id===st.accountId);
     const pay=(st.payments||[]).find(p=>p.month===m);
     const total=(st.payments||[]).filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
-    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, accountId:st.accountId, accountEmail:acc?.email||'—', payments:st.payments||[], paid:pay?.paid||false, payAmount:pay?.amount||((st.payments||[]).length>1?60000:80000), totalPaid:total, role:st.role||'student', disabled:st.disabled||false, uid:st.uid||null, courseIds:st.courseIds||[] };
+    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, accountId:st.accountId, accountEmail:acc?.email||'—', payments:st.payments||[], paid:pay?.paid||false, payAmount:pay?.amount||((st.payments||[]).length>1?60000:80000), totalPaid:total, role:st.role||'student', disabled:st.disabled||false, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'' };
   });
 
   const filtered = persons.filter(p=>{
@@ -348,7 +352,7 @@ export default function AdminPersonas() {
     if(existing){
       const st=students.find(s=>s.id===existing.studentId);
       if(!st) return;
-      const updated={...st,name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,role:form.role,disabled:form.disabled,courseIds};
+      const updated={...st,name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,role:form.role,disabled:form.disabled,courseIds,accessPassword:password};
       if(form.accountId!==st.accountId){
         await removeStudentFromAccount(accounts,st.id);
         updated.accountId=form.accountId||null;
@@ -370,7 +374,7 @@ export default function AdminPersonas() {
           if(uid_firebase&&courseIds.length>0) await Promise.all(courseIds.map(id=>assignCourseToUser(uid_firebase,id)));
         }catch(e){ console.warn('Auth:',e.message); }
       }
-      const newSt={id:uid(),name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,accountId:form.accountId||null,payments:[],deletedAt:null,role:form.role,disabled:form.disabled,uid:uid_firebase,courseIds};
+      const newSt={id:uid(),name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,accountId:form.accountId||null,payments:[],deletedAt:null,role:form.role,disabled:form.disabled,uid:uid_firebase,courseIds,accessPassword:password};
       await saveStudent(newSt);
       if(form.accountId) await assignStudentToAccount(accounts,form.accountId,newSt.id);
     }
