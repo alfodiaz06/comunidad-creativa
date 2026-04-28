@@ -427,14 +427,13 @@ export default function AdminPersonas() {
         await Promise.all([...toAdd.map(id=>assignCourseToUser(st.uid,id)),...toRemove.map(id=>removeCourseFromUser(st.uid,id))]);
         // Sync disabled status to Firestore so login is blocked/unblocked immediately
         await updateUserProfile(st.uid, { disabled: form.disabled, role: form.role });
-        // Sync password to Firebase Auth if it changed
-        const oldPassword = st.accessPassword || '';
-        if (password && password !== oldPassword) {
+        // Always sync password to Firebase Auth
+        if (password && password.length >= 6) {
           try {
             await apiUpdatePassword(st.uid, st.email || form.email, password);
           } catch(e) { console.warn('Password sync:', e.message); }
         }
-      } else if (!st.uid && (st.email || form.email) && password && password !== (st.accessPassword||'')) {
+      } else if (!st.uid && (st.email || form.email) && password && password.length >= 6) {
         // No uid saved but may exist in Auth — try to update by email
         try {
           await apiUpdatePassword(null, st.email || form.email, password);
