@@ -48,7 +48,7 @@ export default function AdminDashboard() {
   }, []);
 
   if (loading) return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
       <AdminNav />
       <main className="flex-1 flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin" />
@@ -62,9 +62,9 @@ export default function AdminDashboard() {
   const pendingStudents = active.filter(s => !(s.payments || []).find(p => p.month === m && p.paid));
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
       <AdminNav />
-      <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 lg:overflow-auto p-4 pt-16 lg:pt-8 sm:px-6 lg:px-8 lg:py-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8 animate-fade-in">
             <h1 className="font-display text-2xl font-bold text-white">Panel de administración</h1>

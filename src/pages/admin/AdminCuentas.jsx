@@ -208,9 +208,9 @@ export default function AdminCuentas() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
       <AdminNav/>
-      <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 lg:overflow-auto p-4 pt-16 lg:pt-8 sm:px-6 lg:px-8 lg:py-8">
         <div className="max-w-6xl mx-auto">
           {!currentAcc ? (
             <>

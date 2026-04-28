@@ -274,7 +274,7 @@ export default function AdminCourseEditor() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
       <AdminNav />
       <main className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="max-w-3xl mx-auto">
