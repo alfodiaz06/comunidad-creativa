@@ -71,19 +71,25 @@ export default function AdminTorre() {
   const adsByPlatform = ads.reduce((acc,a)=>{acc[a.platform]=(acc[a.platform]||0)+a.amount;return acc;},{});
 
   // Students by who added them
-  const byAdmin = active.reduce((acc,st)=>{
-    const key = st.addedBy || 'Sin registro';
-    acc[key] = (acc[key]||0) + 1;
-    return acc;
-  },{});
-  const byAdminEntries = Object.entries(byAdmin).sort((a,b)=>b[1]-a[1]);
-  const PIE_COLORS = ['#f97316','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6','#eab308','#ef4444'];
 
   const filteredStudents = active.filter(s=>{
     if(filter==='paid'){ const p=(s.payments||[]).find(x=>x.month===m); return p?.paid; }
     if(filter==='pending'){ const p=(s.payments||[]).find(x=>x.month===m); return !p?.paid; }
     return true;
   });
+
+  const [assigning, setAssigning] = useState(false);
+  const handleAssignAll = async () => {
+    const adminName = profile?.displayName || profile?.email || "Admin";
+    const unassigned = active.filter(s => !s.addedBy);
+    if (unassigned.length === 0) { alert("Todos los estudiantes ya tienen admin asignado."); return; }
+    if (!confirm(`¿Asignarte como admin de ${unassigned.length} estudiante(s) sin registro?`)) return;
+    setAssigning(true);
+    try {
+      await Promise.all(unassigned.map(st => saveStudent({...st, addedBy: adminName})));
+      await load();
+    } finally { setAssigning(false); }
+  };
 
   const handleTogglePay = async (st) => {
     const pays=[...(st.payments||[])];
@@ -125,74 +131,7 @@ export default function AdminTorre() {
             ))}
           </div>
 
-          {/* PIE CHART — Estudiantes por admin */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-            <div className="card">
-              <h3 className="font-display font-semibold text-white text-sm mb-4">👥 Estudiantes por administrador</h3>
-              {byAdminEntries.length === 0 ? (
-                <div className="text-xs text-slate-500 py-4">Sin datos. Los próximos estudiantes creados aparecerán aquí.</div>
-              ) : (
-                <div className="flex items-center gap-5">
-                  <div className="flex-shrink-0">
-                    <svg viewBox="0 0 180 180" width="150" height="150">
-                      {(() => {
-                        const total = byAdminEntries.reduce((s,[,c])=>s+c,0);
-                        let angle = -Math.PI / 2;
-                        const cx=90, cy=90, r=72, ir=36;
-                        return byAdminEntries.map(([name, count], idx) => {
-                          const slice = (count / total) * 2 * Math.PI;
-                          const x1 = cx + r * Math.cos(angle);
-                          const y1 = cy + r * Math.sin(angle);
-                          const x2 = cx + r * Math.cos(angle + slice);
-                          const y2 = cy + r * Math.sin(angle + slice);
-                          const large = slice > Math.PI ? 1 : 0;
-                          const color = PIE_COLORS[idx % PIE_COLORS.length];
-                          const mid = angle + slice / 2;
-                          const lx = cx + r * 0.62 * Math.cos(mid);
-                          const ly = cy + r * 0.62 * Math.sin(mid);
-                          const d = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`;
-                          angle += slice;
-                          return (
-                            <g key={name}>
-                              <path d={d} fill={color} stroke="#0f172a" strokeWidth="2"/>
-                              {count/total > 0.08 && (
-                                <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="10" fontWeight="bold">{count}</text>
-                              )}
-                            </g>
-                          );
-                        });
-                      })()}
-                      <circle cx="90" cy="90" r="36" fill="#0f172a"/>
-                      <text x="90" y="84" textAnchor="middle" fill="#64748b" fontSize="9">Total</text>
-                      <text x="90" y="100" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold">{byAdminEntries.reduce((s,[,c])=>s+c,0)}</text>
-                    </svg>
-                  </div>
-                  <div className="flex-1 space-y-3 min-w-0">
-                    {byAdminEntries.map(([name, count], idx) => {
-                      const total = byAdminEntries.reduce((s,[,c])=>s+c,0);
-                      const pct = total > 0 ? Math.round((count/total)*100) : 0;
-                      const color = PIE_COLORS[idx % PIE_COLORS.length];
-                      const shortName = name.includes('@') ? name.split('@')[0] : name;
-                      return (
-                        <div key={name}>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor:color}}/>
-                              <span className="text-xs font-display text-slate-200 truncate" title={name}>{shortName}</span>
-                            </div>
-                            <span className="text-xs font-mono text-slate-400 flex-shrink-0 ml-2">{count} · {pct}%</span>
-                          </div>
-                          <div className="w-full bg-obsidian-700 rounded-full h-1.5">
-                            <div className="h-1.5 rounded-full transition-all" style={{width:`${pct}%`, backgroundColor:color}}/>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Ads */}
             <div className="card">
               <div className="flex items-center justify-between mb-4">
