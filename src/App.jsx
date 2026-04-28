@@ -9,7 +9,9 @@ import AdminPersonas from './pages/admin/AdminPersonas';
 import AdminCuentas from './pages/admin/AdminCuentas';
 import AdminTorre from './pages/admin/AdminTorre';
 import AdminPapelera from './pages/admin/AdminPapelera';
+import AdminResources from './pages/admin/AdminResources';
 import AdminCourseEditor from './pages/admin/AdminCourseEditor';
+import ResourcesPage from './pages/student/ResourcesPage';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import AdminRoute from './components/shared/AdminRoute';
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -24,6 +26,7 @@ export default function App() {
         <Route path="/dashboard" element={<StudentDashboard/>}/>
         <Route path="/course/:courseId" element={<CoursePage/>}/>
         <Route path="/course/:courseId/lesson/:lessonId" element={<CoursePage/>}/>
+        <Route path="/resources" element={<ResourcesPage/>}/>
       </Route>
       <Route element={<AdminRoute/>}>
         <Route path="/admin" element={<AdminDashboard/>}/>
@@ -31,6 +34,7 @@ export default function App() {
         <Route path="/admin/cuentas" element={<AdminCuentas/>}/>
         <Route path="/admin/torre" element={<AdminTorre/>}/>
         <Route path="/admin/papelera" element={<AdminPapelera/>}/>
+        <Route path="/admin/resources" element={<AdminResources/>}/>
         <Route path="/admin/courses" element={<AdminCourses/>}/>
         <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEditor/>}/>
       </Route>

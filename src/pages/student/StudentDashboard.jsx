@@ -115,6 +115,23 @@ export default function StudentDashboard() {
           ))}
         </div>
 
+        {/* Quick access */}
+        <section className="mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Link to="/resources"
+              className="card hover:bg-obsidian-700/60 hover:border-brand-500/20 transition-all flex items-center gap-4 cursor-pointer">
+              <div className="w-12 h-12 rounded-xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center text-2xl flex-shrink-0">
+                📁
+              </div>
+              <div>
+                <h3 className="font-display font-semibold text-white text-sm">Recursos de referencia</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Imágenes y materiales de apoyo para tus diseños</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600 ml-auto flex-shrink-0"/>
+            </Link>
+          </div>
+        </section>
+
         {/* Courses */}
         <section>
           <h2 className="font-display text-lg font-semibold text-white mb-5">Mis cursos</h2>

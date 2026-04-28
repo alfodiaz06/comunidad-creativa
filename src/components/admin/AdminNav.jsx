@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BookOpen, Users, LayoutDashboard, LogOut, ChevronRight, Shield, Flame, KeyRound, TrendingUp, Trash2, Menu, X } from 'lucide-react';
+import { BookOpen, Users, LayoutDashboard, LogOut, ChevronRight, Shield, Flame, KeyRound, TrendingUp, Trash2, Menu, X, Image } from 'lucide-react';
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/admin/personas', label: 'Personas', icon: Users },
   { to: '/admin/cuentas', label: 'Cuentas', icon: KeyRound },
   { to: '/admin/courses', label: 'Cursos', icon: BookOpen },
+  { to: '/admin/resources', label: 'Recursos', icon: Image },
   { to: '/admin/torre', label: 'Torre', icon: TrendingUp },
   { to: '/admin/papelera', label: 'Papelera', icon: Trash2 },
 ];
