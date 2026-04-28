@@ -363,6 +363,7 @@ function PersonModal({ person, accounts, courses, onClose, onSave }) {
 
 // ── MAIN
 export default function AdminPersonas() {
+  const { profile } = useAuth();
   const [accounts, setAccounts] = useState([]);
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -394,7 +395,7 @@ export default function AdminPersonas() {
     const daysLeft = Math.round((exp - now) / 86400000);
     const isExpired = daysLeft < 0;
     const expiresLabel = isExpired ? `Venció hace ${Math.abs(daysLeft)} día${Math.abs(daysLeft)!==1?'s':''}` : daysLeft===0 ? 'Vence hoy' : `Vence en ${daysLeft} día${daysLeft!==1?'s':''}`;
-    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments:st.payments||[], paid:pay?.paid||false, payAmount:pay?.amount||((st.payments||[]).length>1?60000:80000), totalPaid:total, role:st.role||'student', disabled:st.disabled||isExpired, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'' };
+    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments:st.payments||[], paid:pay?.paid||false, payAmount:pay?.amount||((st.payments||[]).length>1?60000:80000), totalPaid:total, role:st.role||'student', disabled:st.disabled||isExpired, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'', addedBy:st.addedBy||'' };
   });
 
   const filtered = persons.filter(p=>{
@@ -436,7 +437,7 @@ export default function AdminPersonas() {
           if(uid_firebase&&courseIds.length>0) await Promise.all(courseIds.map(id=>assignCourseToUser(uid_firebase,id)));
         }catch(e){ console.warn('Auth:',e.message); }
       }
-      const newSt={id:uid(),name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,expiresAt:form.expiresAt,accountId:form.accountId||null,payments:[],deletedAt:null,role:form.role,disabled:form.disabled,uid:uid_firebase,courseIds,accessPassword:password};
+      const newSt={id:uid(),name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,expiresAt:form.expiresAt,accountId:form.accountId||null,payments:[],deletedAt:null,role:form.role,disabled:form.disabled,uid:uid_firebase,courseIds,accessPassword:password,addedBy:profile?.displayName||profile?.email||'Admin',addedAt:new Date().toISOString()};
       await saveStudent(newSt);
       if(form.accountId) await assignStudentToAccount(accounts,form.accountId,newSt.id);
     }
@@ -531,6 +532,7 @@ export default function AdminPersonas() {
                                 {p.disabled && <span className="text-xs font-mono text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full">Inactivo</span>}
                               </div>
                               <div className="text-xs font-mono text-slate-500">{p.email||'Sin correo'}</div>
+                              {p.addedBy && <div className="text-xs font-mono text-slate-600">Agregado por {p.addedBy}</div>}
                             </div>
                           </div>
                         </td>
