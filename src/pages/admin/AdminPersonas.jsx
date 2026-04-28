@@ -532,7 +532,10 @@ export default function AdminPersonas() {
                                 {p.disabled && <span className="text-xs font-mono text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full">Inactivo</span>}
                               </div>
                               <div className="text-xs font-mono text-slate-500">{p.email||'Sin correo'}</div>
-                              {p.addedBy && <div className="text-xs font-mono text-slate-600">Agregado por {p.addedBy}</div>}
+                              {p.addedBy
+                                ? <div className="text-xs font-mono text-brand-400/70 mt-0.5">👤 {p.addedBy}</div>
+                                : <div className="text-xs font-mono text-slate-700 mt-0.5">👤 Sin registro</div>
+                              }
                             </div>
                           </div>
                         </td>
