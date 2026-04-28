@@ -24,9 +24,9 @@ const rtdb = {
 const uid = () => 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 // Convert Drive URL to direct image URL
-export function driveToImg(url) {
-  if (!url) return '';
-  // Extract ID from various Drive URL formats
+// Extract Drive file ID from any Drive URL
+export function extractDriveId(url) {
+  if (!url) return null;
   const patterns = [
     /\/file\/d\/([a-zA-Z0-9_-]+)/,
     /id=([a-zA-Z0-9_-]+)/,
@@ -34,13 +34,29 @@ export function driveToImg(url) {
   ];
   for (const p of patterns) {
     const m = url.match(p);
-    if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+    if (m) return m[1];
   }
-  // If already a direct ID
-  if (/^[a-zA-Z0-9_-]{25,}$/.test(url.trim())) {
-    return `https://drive.google.com/uc?export=view&id=${url.trim()}`;
-  }
-  return url;
+  if (/^[a-zA-Z0-9_-]{25,}$/.test(url.trim())) return url.trim();
+  return null;
+}
+
+// Thumbnail URL — works without CORS issues, great for previews
+export function driveToThumb(url, size = 1000) {
+  const id = extractDriveId(url);
+  if (!id) return url;
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w${size}`;
+}
+
+// Embed URL — for fullscreen iframe view
+export function driveToEmbed(url) {
+  const id = extractDriveId(url);
+  if (!id) return url;
+  return `https://drive.google.com/file/d/${id}/preview`;
+}
+
+// Keep for compatibility
+export function driveToImg(url) {
+  return driveToThumb(url, 800);
 }
 
 // ── SECTIONS (carpetas)

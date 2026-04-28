@@ -1,24 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSections, getSectionImages, driveToImg } from '../../lib/resources';
-import { ChevronLeft, Download, Copy, Check, ExternalLink, FolderOpen, Image as ImageIcon } from 'lucide-react';
+import { getSections, getSectionImages, driveToThumb, driveToEmbed, extractDriveId } from '../../lib/resources';
+import { ChevronLeft, Check, Copy, FolderOpen, Image as ImageIcon, X } from 'lucide-react';
 
+// ── Fullscreen viewer using Drive iframe embed
 function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
-  const [copied, setCopied] = useState(false);
-  const imgUrl = img.imgUrl || driveToImg(img.driveUrl);
-
-  const copyImage = async () => {
-    try {
-      const res = await fetch(imgUrl);
-      const blob = await res.blob();
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback: open in new tab
-      window.open(imgUrl, '_blank');
-    }
-  };
+  const embedUrl = driveToEmbed(img.driveUrl);
 
   useEffect(() => {
     const handleKey = (e) => {
@@ -31,55 +19,103 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
   }, [onPrev, onNext, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between p-4 flex-shrink-0" onClick={e=>e.stopPropagation()}>
-        <button onClick={onClose} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
-          <ChevronLeft className="w-4 h-4"/> Cerrar
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 border-b border-white/5">
+        <button onClick={onClose}
+          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
+          <X className="w-4 h-4"/> Cerrar
         </button>
-        <div className="text-slate-500 text-sm font-mono">{current + 1} / {total}</div>
-        <div className="flex gap-2">
-          <a href={img.driveUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-display font-semibold bg-white/10 text-slate-300 hover:bg-white/20 transition-all">
-            <ExternalLink className="w-3.5 h-3.5"/> Abrir en Drive
-          </a>
-          <button onClick={copyImage}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all
-              ${copied ? 'bg-jade-500/20 text-jade-400' : 'bg-brand-500/15 text-brand-300 hover:bg-brand-500/25'}`}>
-            {copied ? <><Check className="w-3.5 h-3.5"/>Copiada</> : <><Copy className="w-3.5 h-3.5"/>Copiar imagen</>}
-          </button>
-        </div>
+        {img.title && <p className="text-slate-400 text-sm font-body truncate mx-4">{img.title}</p>}
+        <div className="text-slate-500 text-xs font-mono flex-shrink-0">{current + 1} / {total}</div>
       </div>
 
-      {/* Image */}
-      <div className="flex-1 flex items-center justify-center p-4 relative" onClick={e=>e.stopPropagation()}>
-        {/* Prev */}
+      {/* Iframe embed — Drive preview, no external link needed */}
+      <div className="flex-1 relative flex items-center justify-center">
+        {/* Prev arrow */}
         {current > 0 && (
           <button onClick={onPrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-10">
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
             <ChevronLeft className="w-5 h-5 text-white"/>
           </button>
         )}
-        <img src={imgUrl} alt={img.title||''} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"/>
-        {/* Next */}
+
+        <iframe
+          src={embedUrl}
+          className="w-full h-full border-0"
+          allow="autoplay"
+          title={img.title || `Imagen ${current + 1}`}
+          style={{background:'transparent'}}
+        />
+
+        {/* Next arrow */}
         {current < total - 1 && (
           <button onClick={onNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-10">
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
             <ChevronLeft className="w-5 h-5 text-white rotate-180"/>
           </button>
         )}
       </div>
 
-      {/* Bottom title */}
-      {img.title && (
-        <div className="p-4 text-center flex-shrink-0" onClick={e=>e.stopPropagation()}>
-          <p className="text-slate-400 text-sm font-body">{img.title}</p>
+      {/* Bottom nav dots */}
+      {total > 1 && (
+        <div className="flex items-center justify-center gap-1.5 py-3 flex-shrink-0">
+          {Array.from({length: total}).map((_, i) => (
+            <button key={i} onClick={() => i < current ? onPrev() : onNext()}
+              className={`rounded-full transition-all ${i === current ? 'w-5 h-1.5 bg-brand-400' : 'w-1.5 h-1.5 bg-white/20 hover:bg-white/40'}`}/>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
+// ── Thumbnail card
+function ImageCard({ img, onClick }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  const thumbUrl = driveToThumb(img.driveUrl, 400);
+
+  return (
+    <button onClick={onClick}
+      className="card p-0 overflow-hidden group cursor-pointer hover:border-brand-500/30 hover:scale-[1.02] transition-all duration-200 text-left">
+      <div className="aspect-square bg-obsidian-700 relative flex items-center justify-center">
+        {!error ? (
+          <>
+            {!loaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin"/>
+              </div>
+            )}
+            <img
+              src={thumbUrl}
+              alt={img.title || ''}
+              className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              onLoad={() => setLoaded(true)}
+              onError={() => setError(true)}
+            />
+          </>
+        ) : (
+          // Fallback: show Drive embed as thumbnail
+          <iframe
+            src={driveToEmbed(img.driveUrl)}
+            className="w-full h-full border-0 pointer-events-none"
+            title={img.title||''}
+            style={{background:'#1e293b'}}
+          />
+        )}
+        <div className="absolute inset-0 bg-brand-500/0 group-hover:bg-brand-500/10 transition-colors"/>
+      </div>
+      {img.title && (
+        <div className="px-3 py-2">
+          <p className="text-xs font-body text-slate-400 truncate">{img.title}</p>
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ── MAIN PAGE
 export default function ResourcesPage() {
   const { profile } = useAuth();
   const [sections, setSections] = useState([]);
@@ -87,7 +123,7 @@ export default function ResourcesPage() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imgsLoading, setImgsLoading] = useState(false);
-  const [viewer, setViewer] = useState(null); // { index }
+  const [viewer, setViewer] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -98,41 +134,34 @@ export default function ResourcesPage() {
     load();
   }, []);
 
-  const loadImages = useCallback(async (sectionId) => {
-    setImgsLoading(true);
-    try { setImages(await getSectionImages(sectionId)); }
-    finally { setImgsLoading(false); }
-  }, []);
-
   const handleSelectSection = async (sec) => {
     setSelected(sec);
-    await loadImages(sec.id);
+    setImgsLoading(true);
+    try { setImages(await getSectionImages(sec.id)); }
+    finally { setImgsLoading(false); }
   };
 
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <div className="glass-strong border-b border-white/5 px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div className="glass-strong border-b border-white/5 px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
           {selected ? (
             <button onClick={() => { setSelected(null); setImages([]); }}
               className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-sm">
-              <ChevronLeft className="w-4 h-4"/>
-              <span className="hidden sm:inline">Recursos</span>
+              <ChevronLeft className="w-4 h-4"/> Recursos
             </button>
           ) : (
             <Link to="/dashboard" className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-sm">
               <ChevronLeft className="w-4 h-4"/> Dashboard
             </Link>
           )}
-          <div className="w-px h-4 bg-white/10"/>
-          <div>
-            <h1 className="font-display font-bold text-white text-sm sm:text-base">
-              {selected ? (
-                <span className="flex items-center gap-2">{selected.emoji} {selected.name}</span>
-              ) : 'Recursos'}
-            </h1>
-          </div>
+          {selected && <>
+            <div className="w-px h-4 bg-white/10"/>
+            <span className="font-display font-semibold text-white text-sm flex items-center gap-1.5">
+              {selected.emoji} {selected.name}
+            </span>
+          </>}
         </div>
         <div className="w-8 h-8 rounded-full bg-brand-500/15 border border-brand-500/20 flex items-center justify-center text-brand-400 font-bold text-xs">
           {(profile?.displayName||'E')[0].toUpperCase()}
@@ -141,70 +170,51 @@ export default function ResourcesPage() {
 
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         {!selected ? (
-          // Section grid
           <>
             <div className="mb-6 mt-2">
-              <h2 className="font-display text-lg font-bold text-white">📁 Secciones de referencia</h2>
-              <p className="text-slate-500 text-sm mt-1">Selecciona una sección para ver las imágenes de referencia</p>
+              <h2 className="font-display text-xl font-bold text-white">📁 Secciones de referencia</h2>
+              <p className="text-slate-500 text-sm mt-1">Selecciona una carpeta para ver las imágenes</p>
             </div>
             {loading ? (
-              <div className="flex items-center justify-center h-48">
-                <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin"/>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {[1,2,3,4,5].map(i=><div key={i} className="card h-28 shimmer-loading"/>)}
               </div>
             ) : sections.length === 0 ? (
               <div className="card text-center py-20">
                 <FolderOpen className="w-12 h-12 text-slate-700 mx-auto mb-3"/>
-                <p className="text-slate-500 text-sm">Próximamente — el administrador está preparando los recursos</p>
+                <p className="text-slate-500 text-sm">Próximamente — recursos en preparación</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 animate-slide-up">
                 {sections.map(sec => (
                   <button key={sec.id} onClick={() => handleSelectSection(sec)}
-                    className="card hover:bg-obsidian-700/60 hover:border-brand-500/20 transition-all text-left cursor-pointer">
+                    className="card hover:bg-obsidian-700/60 hover:border-brand-500/20 hover:scale-[1.02] transition-all duration-200 text-left cursor-pointer">
                     <div className="text-3xl mb-3">{sec.emoji}</div>
-                    <h3 className="font-display font-semibold text-white text-sm mb-1">{sec.name}</h3>
-                    {sec.description && <p className="text-xs text-slate-500 line-clamp-2">{sec.description}</p>}
+                    <h3 className="font-display font-semibold text-white text-sm">{sec.name}</h3>
+                    {sec.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{sec.description}</p>}
                   </button>
                 ))}
               </div>
             )}
           </>
         ) : (
-          // Images grid
           <div className="mt-2">
             <p className="text-slate-500 text-sm mb-5">
-              {selected.description || 'Toca cualquier imagen para verla en grande y copiarla'}
+              {selected.description || `${images.length} imagen${images.length!==1?'es':''} · Toca para ver en pantalla completa`}
             </p>
             {imgsLoading ? (
-              <div className="flex items-center justify-center h-48">
-                <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin"/>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {[1,2,3,4,5,6].map(i=><div key={i} className="card aspect-square shimmer-loading"/>)}
               </div>
             ) : images.length === 0 ? (
               <div className="card text-center py-16">
                 <ImageIcon className="w-10 h-10 text-slate-700 mx-auto mb-3"/>
-                <p className="text-slate-500 text-sm">Próximamente — imágenes en preparación</p>
+                <p className="text-slate-500 text-sm">Imágenes en preparación</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 animate-slide-up">
                 {images.map((img, idx) => (
-                  <button key={img.id} onClick={() => setViewer({index:idx})}
-                    className="card p-0 overflow-hidden group cursor-pointer hover:border-brand-500/30 transition-all text-left">
-                    <div className="aspect-square bg-obsidian-700 relative">
-                      <img src={img.imgUrl || driveToImg(img.driveUrl)} alt={img.title||`Imagen ${idx+1}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={e=>{e.target.style.display='none';}}/>
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
-                          <ExternalLink className="w-4 h-4 text-white"/>
-                        </div>
-                      </div>
-                    </div>
-                    {img.title && (
-                      <div className="p-2">
-                        <p className="text-xs font-body text-slate-400 truncate">{img.title}</p>
-                      </div>
-                    )}
-                  </button>
+                  <ImageCard key={img.id} img={img} onClick={() => setViewer({index:idx})}/>
                 ))}
               </div>
             )}
@@ -212,7 +222,6 @@ export default function ResourcesPage() {
         )}
       </div>
 
-      {/* Image viewer */}
       {viewer && images[viewer.index] && (
         <ImageViewer
           img={images[viewer.index]}

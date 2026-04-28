@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminNav from '../../components/admin/AdminNav';
-import {
-  getSections, saveSection, deleteSection,
-  getSectionImages, saveImage, deleteImage, getAllImages, driveToImg
-} from '../../lib/resources';
+import { getSections, saveSection, deleteSection, getSectionImages, saveImage, deleteImage, getAllImages, driveToImg, driveToThumb, driveToEmbed } from '../../lib/resources';
 import { Plus, Pencil, Trash2, X, Check, ChevronLeft, Image, FolderOpen, GripVertical, ExternalLink } from 'lucide-react';
 
 // ── Section Modal
@@ -97,7 +94,7 @@ function ImageModal({ sectionId, image, imageCount, onClose, onSave }) {
             <div>
               <label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Vista previa</label>
               <div className="relative rounded-xl overflow-hidden bg-obsidian-700 border border-white/5">
-                <img src={preview} alt="preview" className="w-full max-h-48 object-contain"
+                <img src={driveToThumb(form.driveUrl, 600)} alt="preview" className="w-full max-h-48 object-contain"
                   onError={e=>{e.target.style.display='none';}}/>
                 <a href={form.driveUrl} target="_blank" rel="noopener noreferrer"
                   className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-lg text-white hover:bg-black/70 transition-colors">
@@ -180,7 +177,7 @@ function SectionDetail({ section, onBack, onRefresh }) {
           {images.map(img => (
             <div key={img.id} className="card p-0 overflow-hidden group relative">
               <div className="aspect-square bg-obsidian-700 relative">
-                <img src={img.imgUrl || driveToImg(img.driveUrl)} alt={img.title||''}
+                <img src={driveToThumb(img.driveUrl, 400)} alt={img.title||''}
                   className="w-full h-full object-cover"
                   onError={e=>{e.target.src='';e.target.parentElement.classList.add('flex','items-center','justify-center');}}/>
                 {/* Hover overlay */}
