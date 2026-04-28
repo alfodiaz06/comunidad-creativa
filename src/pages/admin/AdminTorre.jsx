@@ -125,79 +125,74 @@ export default function AdminTorre() {
             ))}
           </div>
 
-          {/* Estudiantes por admin — pie chart */}
-          <div className="card mb-5">
-            <h3 className="font-display font-semibold text-white text-sm mb-5 flex items-center gap-2">
-              🥧 Estudiantes por administrador
-            </h3>
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-              {/* SVG Pie */}
-              <div className="flex-shrink-0">
-                <svg viewBox="0 0 120 120" width="160" height="160">
-                  {(() => {
-                    const total = active.length;
-                    if(total === 0) return <circle cx="60" cy="60" r="50" fill="#1e293b"/>;
-                    let startAngle = -Math.PI/2;
-                    return byAdminEntries.map(([name, count], idx) => {
-                      const slice = (count / total) * 2 * Math.PI;
-                      const x1 = 60 + 50 * Math.cos(startAngle);
-                      const y1 = 60 + 50 * Math.sin(startAngle);
-                      const x2 = 60 + 50 * Math.cos(startAngle + slice);
-                      const y2 = 60 + 50 * Math.sin(startAngle + slice);
-                      const large = slice > Math.PI ? 1 : 0;
-                      const color = PIE_COLORS[idx % PIE_COLORS.length];
-                      // Label position
-                      const midAngle = startAngle + slice/2;
-                      const lx = 60 + 28 * Math.cos(midAngle);
-                      const ly = 60 + 28 * Math.sin(midAngle);
-                      const path = `M60,60 L${x1},${y1} A50,50 0 ${large},1 ${x2},${y2} Z`;
-                      startAngle += slice;
-                      return (
-                        <g key={name}>
-                          <path d={path} fill={color} stroke="#0f172a" strokeWidth="1.5"/>
-                          {count/total > 0.07 && (
-                            <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
-                              fill="white" fontSize="8" fontWeight="bold">{count}</text>
-                          )}
-                        </g>
-                      );
-                    });
-                  })()}
-                  {/* Center hole */}
-                  <circle cx="60" cy="60" r="22" fill="#0f172a"/>
-                  <text x="60" y="58" textAnchor="middle" fill="#94a3b8" fontSize="7">Total</text>
-                  <text x="60" y="68" textAnchor="middle" fill="white" fontSize="11" fontWeight="bold">{active.length}</text>
-                </svg>
-              </div>
-              {/* Legend */}
-              <div className="flex-1 space-y-2 w-full">
-                {byAdminEntries.map(([name, count], idx) => {
-                  const pct = active.length > 0 ? Math.round((count/active.length)*100) : 0;
-                  const color = PIE_COLORS[idx % PIE_COLORS.length];
-                  return (
-                    <div key={name} className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: color}}/>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-display text-slate-200 truncate">{name}</div>
-                        <div className="w-full bg-obsidian-700 rounded-full h-1.5 mt-1">
-                          <div className="h-1.5 rounded-full transition-all" style={{width:`${pct}%`, backgroundColor: color}}/>
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="text-sm font-mono font-bold text-slate-200">{count}</span>
-                        <span className="text-xs font-mono text-slate-500 ml-1">{pct}%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-                {byAdminEntries.length === 0 && (
-                  <p className="text-xs text-slate-500">Sin datos todavía</p>
-                )}
-              </div>
-            </div>
-          </div>
-
+          {/* PIE CHART — Estudiantes por admin */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+            <div className="card">
+              <h3 className="font-display font-semibold text-white text-sm mb-4">👥 Estudiantes por administrador</h3>
+              {byAdminEntries.length === 0 ? (
+                <div className="text-xs text-slate-500 py-4">Sin datos. Los próximos estudiantes creados aparecerán aquí.</div>
+              ) : (
+                <div className="flex items-center gap-5">
+                  <div className="flex-shrink-0">
+                    <svg viewBox="0 0 180 180" width="150" height="150">
+                      {(() => {
+                        const total = byAdminEntries.reduce((s,[,c])=>s+c,0);
+                        let angle = -Math.PI / 2;
+                        const cx=90, cy=90, r=72, ir=36;
+                        return byAdminEntries.map(([name, count], idx) => {
+                          const slice = (count / total) * 2 * Math.PI;
+                          const x1 = cx + r * Math.cos(angle);
+                          const y1 = cy + r * Math.sin(angle);
+                          const x2 = cx + r * Math.cos(angle + slice);
+                          const y2 = cy + r * Math.sin(angle + slice);
+                          const large = slice > Math.PI ? 1 : 0;
+                          const color = PIE_COLORS[idx % PIE_COLORS.length];
+                          const mid = angle + slice / 2;
+                          const lx = cx + r * 0.62 * Math.cos(mid);
+                          const ly = cy + r * 0.62 * Math.sin(mid);
+                          const d = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`;
+                          angle += slice;
+                          return (
+                            <g key={name}>
+                              <path d={d} fill={color} stroke="#0f172a" strokeWidth="2"/>
+                              {count/total > 0.08 && (
+                                <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="10" fontWeight="bold">{count}</text>
+                              )}
+                            </g>
+                          );
+                        });
+                      })()}
+                      <circle cx="90" cy="90" r="36" fill="#0f172a"/>
+                      <text x="90" y="84" textAnchor="middle" fill="#64748b" fontSize="9">Total</text>
+                      <text x="90" y="100" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold">{byAdminEntries.reduce((s,[,c])=>s+c,0)}</text>
+                    </svg>
+                  </div>
+                  <div className="flex-1 space-y-3 min-w-0">
+                    {byAdminEntries.map(([name, count], idx) => {
+                      const total = byAdminEntries.reduce((s,[,c])=>s+c,0);
+                      const pct = total > 0 ? Math.round((count/total)*100) : 0;
+                      const color = PIE_COLORS[idx % PIE_COLORS.length];
+                      const shortName = name.includes('@') ? name.split('@')[0] : name;
+                      return (
+                        <div key={name}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{backgroundColor:color}}/>
+                              <span className="text-xs font-display text-slate-200 truncate" title={name}>{shortName}</span>
+                            </div>
+                            <span className="text-xs font-mono text-slate-400 flex-shrink-0 ml-2">{count} · {pct}%</span>
+                          </div>
+                          <div className="w-full bg-obsidian-700 rounded-full h-1.5">
+                            <div className="h-1.5 rounded-full transition-all" style={{width:`${pct}%`, backgroundColor:color}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Ads */}
             <div className="card">
               <div className="flex items-center justify-between mb-4">
