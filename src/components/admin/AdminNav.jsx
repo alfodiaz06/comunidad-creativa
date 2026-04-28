@@ -19,7 +19,7 @@ export default function AdminNav() {
   const isActive = (item) => item.exact ? pathname === item.to : pathname.startsWith(item.to);
 
   return (
-    <aside className="w-56 xl:w-60 min-h-screen glass-strong border-r border-white/5 flex flex-col flex-shrink-0">
+    <aside className="w-56 xl:w-60 h-screen sticky top-0 glass-strong border-r border-white/5 flex flex-col flex-shrink-0 overflow-y-auto">
       <div className="p-5 border-b border-white/5">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">

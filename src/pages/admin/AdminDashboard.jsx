@@ -48,7 +48,7 @@ export default function AdminDashboard() {
   }, []);
 
   if (loading) return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <AdminNav />
       <main className="flex-1 flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin" />
@@ -62,7 +62,7 @@ export default function AdminDashboard() {
   const pendingStudents = active.filter(s => !(s.payments || []).find(p => p.month === m && p.paid));
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <AdminNav />
       <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">

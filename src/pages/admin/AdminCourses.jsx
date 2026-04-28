@@ -126,7 +126,7 @@ export default function AdminCourses() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <AdminNav />
       <main className="flex-1 overflow-auto p-6 lg:p-8">
         <div className="max-w-5xl mx-auto">
