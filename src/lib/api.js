@@ -23,7 +23,8 @@ export async function apiCreateUser({ email, password, displayName, role = 'stud
   return data;
 }
 
-export async function apiDeleteUser(uid) {
+// Delete by uid OR by email (useful when uid is unknown)
+export async function apiDeleteUser(uid, email) {
   const token = await getAuthToken();
   const res = await fetch(`${BASE_URL}/deleteUser`, {
     method: 'POST',
@@ -31,7 +32,22 @@ export async function apiDeleteUser(uid) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ uid }),
+    body: JSON.stringify({ uid, email }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al eliminar usuario');
+  return data;
+}
+
+export async function apiDeleteUserByEmail(uid, email) {
+  const token = await getAuthToken();
+  const res = await fetch(`${BASE_URL}/deleteUserByEmail`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ uid, email }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error al eliminar usuario');

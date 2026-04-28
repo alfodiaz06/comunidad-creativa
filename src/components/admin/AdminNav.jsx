@@ -8,6 +8,7 @@ const navItems = [
   { to: '/admin/cuentas', label: 'Cuentas', icon: KeyRound },
   { to: '/admin/courses', label: 'Cursos', icon: BookOpen },
   { to: '/admin/torre', label: 'Torre', icon: TrendingUp },
+  { to: '/admin/papelera', label: 'Papelera', icon: Trash2 },
 ];
 
 export default function AdminNav() {

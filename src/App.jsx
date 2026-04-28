@@ -8,6 +8,7 @@ import AdminCourses from './pages/admin/AdminCourses';
 import AdminPersonas from './pages/admin/AdminPersonas';
 import AdminCuentas from './pages/admin/AdminCuentas';
 import AdminTorre from './pages/admin/AdminTorre';
+import AdminPapelera from './pages/admin/AdminPapelera';
 import AdminCourseEditor from './pages/admin/AdminCourseEditor';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import AdminRoute from './components/shared/AdminRoute';
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/admin/personas" element={<AdminPersonas/>}/>
         <Route path="/admin/cuentas" element={<AdminCuentas/>}/>
         <Route path="/admin/torre" element={<AdminTorre/>}/>
+        <Route path="/admin/papelera" element={<AdminPapelera/>}/>
         <Route path="/admin/courses" element={<AdminCourses/>}/>
         <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEditor/>}/>
       </Route>

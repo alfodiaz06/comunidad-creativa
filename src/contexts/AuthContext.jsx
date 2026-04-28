@@ -8,7 +8,8 @@ import {
   reauthenticateWithCredential,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { getUserProfile } from '../lib/db';
+import { getUserProfile, getUserAssignedCourses, assignCourseToUser } from '../lib/db';
+import { getStudents } from '../lib/logistics';
 
 const AuthContext = createContext(null);
 
@@ -17,6 +18,23 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Auto-sync courses from student record to Firestore assignments
+  const syncStudentCourses = async (uid) => {
+    try {
+      const students = await getStudents();
+      const student = students.find(s => s.uid === uid);
+      if (!student || !student.courseIds?.length) return;
+
+      const assigned = await getUserAssignedCourses(uid);
+      const missing = student.courseIds.filter(id => !assigned.includes(id));
+      if (missing.length > 0) {
+        await Promise.all(missing.map(id => assignCourseToUser(uid, id)));
+      }
+    } catch (err) {
+      console.error('Error syncing courses:', err);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -24,6 +42,10 @@ export function AuthProvider({ children }) {
         try {
           const userProfile = await getUserProfile(firebaseUser.uid);
           setProfile(userProfile);
+          // Auto-sync courses for students
+          if (userProfile && userProfile.role !== 'admin') {
+            syncStudentCourses(firebaseUser.uid);
+          }
         } catch (err) {
           console.error('Error fetching user profile:', err);
         }
@@ -57,15 +79,7 @@ export function AuthProvider({ children }) {
 
   const isAdmin = profile?.role === 'admin';
 
-  const value = {
-    user,
-    profile,
-    loading,
-    login,
-    logout,
-    changePassword,
-    isAdmin,
-  };
+  const value = { user, profile, loading, login, logout, changePassword, isAdmin };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
