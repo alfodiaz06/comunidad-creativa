@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import AdminNav from '../../components/admin/AdminNav';
 import { getAccounts, getStudents, getAds, saveAd, deleteAd, saveStudent, statusAccount, money, month, fmt, today } from '../../lib/logistics';
-import { Plus, Trash2, X, Check, Megaphone, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, X, Check, Megaphone, AlertCircle, UserCheck } from 'lucide-react';
 
 function AdModal({ onClose, onSave }) {
   const [form, setForm] = useState({ name:'', platform:'Facebook Ads', amount:'', date:today() });
@@ -42,6 +43,7 @@ function AdModal({ onClose, onSave }) {
 }
 
 export default function AdminTorre() {
+  const { profile } = useAuth();
   const [accounts, setAccounts] = useState([]);
   const [students, setStudents] = useState([]);
   const [ads, setAds] = useState([]);
@@ -70,7 +72,26 @@ export default function AdminTorre() {
   const netTotal = totalHistoric - totalAdsAll;
   const adsByPlatform = ads.reduce((acc,a)=>{acc[a.platform]=(acc[a.platform]||0)+a.amount;return acc;},{});
 
-  // Students by who added them
+  // Stats by admin
+  const byAdmin = active.reduce((acc, st) => {
+    const key = st.addedBy || '—';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const byAdminEntries = Object.entries(byAdmin).sort((a, b) => b[1] - a[1]);
+  const withoutAdmin = active.filter(s => !s.addedBy).length;
+
+  const [assigning, setAssigning] = useState(false);
+  const handleAssignAll = async () => {
+    const adminName = profile?.displayName || profile?.email || 'Alfonso';
+    if (!confirm(`¿Asignar "${adminName}" como admin de los ${withoutAdmin} estudiantes sin registro?`)) return;
+    setAssigning(true);
+    try {
+      const unassigned = active.filter(s => !s.addedBy);
+      await Promise.all(unassigned.map(st => saveStudent({ ...st, addedBy: adminName })));
+      await load();
+    } finally { setAssigning(false); }
+  };
 
   const filteredStudents = active.filter(s=>{
     if(filter==='paid'){ const p=(s.payments||[]).find(x=>x.month===m); return p?.paid; }
@@ -78,18 +99,6 @@ export default function AdminTorre() {
     return true;
   });
 
-  const [assigning, setAssigning] = useState(false);
-  const handleAssignAll = async () => {
-    const adminName = profile?.displayName || profile?.email || "Admin";
-    const unassigned = active.filter(s => !s.addedBy);
-    if (unassigned.length === 0) { alert("Todos los estudiantes ya tienen admin asignado."); return; }
-    if (!confirm(`¿Asignarte como admin de ${unassigned.length} estudiante(s) sin registro?`)) return;
-    setAssigning(true);
-    try {
-      await Promise.all(unassigned.map(st => saveStudent({...st, addedBy: adminName})));
-      await load();
-    } finally { setAssigning(false); }
-  };
 
   const handleTogglePay = async (st) => {
     const pays=[...(st.payments||[])];
@@ -129,6 +138,56 @@ export default function AdminTorre() {
                 <div className={`font-display text-lg font-bold ${color}`}>{val}</div>
               </div>
             ))}
+          </div>
+
+          {/* Admin metrics table */}
+          <div className="card mb-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-semibold text-white text-sm">👥 Estudiantes por administrador</h3>
+              {withoutAdmin > 0 && (
+                <button onClick={handleAssignAll} disabled={assigning}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-display font-semibold bg-brand-500/15 text-brand-300 border border-brand-500/20 hover:bg-brand-500/25 transition-all">
+                  {assigning
+                    ? <div className="w-3 h-3 rounded-full border-2 border-brand-400/30 border-t-brand-400 animate-spin"/>
+                    : <UserCheck className="w-3.5 h-3.5"/>
+                  }
+                  Asignarme los {withoutAdmin} sin registro
+                </button>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="px-4 py-2 text-left text-xs font-mono text-slate-500 uppercase">Administrador</th>
+                    <th className="px-4 py-2 text-left text-xs font-mono text-slate-500 uppercase">Estudiantes</th>
+                    <th className="px-4 py-2 text-left text-xs font-mono text-slate-500 uppercase">Participación</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {byAdminEntries.map(([name, count]) => {
+                    const pct = active.length > 0 ? Math.round((count / active.length) * 100) : 0;
+                    return (
+                      <tr key={name} className="hover:bg-white/2 transition-colors">
+                        <td className="px-4 py-3 font-display text-sm text-slate-200">{name}</td>
+                        <td className="px-4 py-3 font-mono text-sm text-brand-400 font-bold">{count}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-obsidian-700 rounded-full h-2 max-w-[120px]">
+                              <div className="h-2 rounded-full bg-brand-500" style={{width:`${pct}%`}}/>
+                            </div>
+                            <span className="text-xs font-mono text-slate-400">{pct}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {byAdminEntries.length === 0 && (
+                    <tr><td colSpan={3} className="px-4 py-8 text-center text-xs text-slate-500">Sin datos</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
