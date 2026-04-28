@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllCourses, getUserAssignedCourses, assignCourseToUser, removeCourseFromUser, updateUserProfile } from '../../lib/db';
 import { getAccounts, getStudents, saveStudent, deleteStudent, removeStudentFromAccount, assignStudentToAccount, statusAccount, fmt, month, money, today, uid, add30 } from '../../lib/logistics';
-import { apiCreateUser } from '../../lib/api';
+import { apiCreateUser, apiUpdatePassword } from '../../lib/api';
 import AdminNav from '../../components/admin/AdminNav';
 import { Plus, Pencil, Trash2, X, Check, Search, Calendar, Copy, AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -427,6 +427,18 @@ export default function AdminPersonas() {
         await Promise.all([...toAdd.map(id=>assignCourseToUser(st.uid,id)),...toRemove.map(id=>removeCourseFromUser(st.uid,id))]);
         // Sync disabled status to Firestore so login is blocked/unblocked immediately
         await updateUserProfile(st.uid, { disabled: form.disabled, role: form.role });
+        // Sync password to Firebase Auth if it changed
+        const oldPassword = st.accessPassword || '';
+        if (password && password !== oldPassword) {
+          try {
+            await apiUpdatePassword(st.uid, st.email || form.email, password);
+          } catch(e) { console.warn('Password sync:', e.message); }
+        }
+      } else if (!st.uid && (st.email || form.email) && password && password !== (st.accessPassword||'')) {
+        // No uid saved but may exist in Auth — try to update by email
+        try {
+          await apiUpdatePassword(null, st.email || form.email, password);
+        } catch(e) { console.warn('Password sync by email:', e.message); }
       }
     } else {
       let uid_firebase=null;

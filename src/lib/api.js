@@ -53,3 +53,18 @@ export async function apiDeleteUserByEmail(uid, email) {
   if (!res.ok) throw new Error(data.error || 'Error al eliminar usuario');
   return data;
 }
+
+export async function apiUpdatePassword(uid, email, password) {
+  const token = await getAuthToken();
+  const res = await fetch(`${BASE_URL}/updateUserPassword`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ uid, email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al actualizar contraseña');
+  return data;
+}
