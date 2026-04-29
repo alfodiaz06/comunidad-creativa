@@ -30,7 +30,7 @@ async function loadLocalImages(slug) {
     const name = `${prefix} ${i}`;
     let found = false;
     for (const ext of exts) {
-      const url = `/resources/${slug}/${name}.${ext}`;
+      const url = `/resources/${slug}/${encodeURIComponent(name)}.${ext}`;
       try {
         const r = await fetch(url, { method: 'HEAD' });
         if (r.ok) {
@@ -49,8 +49,6 @@ async function loadLocalImages(slug) {
 
 // ── Image Viewer
 function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
-  const isLocal = img.imgUrl?.startsWith('/resources/');
-
   useEffect(() => {
     const h = (e) => {
       if (e.key === 'ArrowLeft') onPrev();
@@ -71,7 +69,7 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
         <div className="text-slate-500 text-xs font-mono">{current + 1} / {total}</div>
       </div>
 
-      <div className="flex-1 relative flex items-center justify-center p-4">
+      <div className="flex-1 relative flex items-center justify-center p-4 overflow-hidden">
         {current > 0 && (
           <button onClick={onPrev}
             className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
@@ -79,15 +77,12 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
           </button>
         )}
 
-        {isLocal ? (
-          <img src={img.imgUrl} alt={img.title||''} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"/>
-        ) : (
-          <div className="relative w-full h-full">
-            <iframe src={img.embedUrl} className="w-full h-full border-0" title={img.title||''} style={{background:'transparent'}}/>
-            <div className="absolute top-0 left-0 right-0 h-12 bg-black/95 pointer-events-none z-10"/>
-            <div className="absolute bottom-0 left-0 right-0 h-10 bg-black/95 pointer-events-none z-10"/>
-          </div>
-        )}
+        <img
+          src={img.imgUrl}
+          alt={img.title||''}
+          className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+          style={{maxHeight:'calc(100vh - 140px)'}}
+        />
 
         {current < total - 1 && (
           <button onClick={onNext}
@@ -113,29 +108,17 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
 function ImageCard({ img, onClick }) {
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const isLocal = img.imgUrl?.startsWith('/resources/');
-
   const handleCopy = async (e) => {
     e.stopPropagation();
-    if (isLocal) {
-      try {
-        // Local images — fetch and copy as blob (works perfectly without CORS)
-        const res = await fetch(img.imgUrl);
-        const blob = await res.blob();
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      } catch {
-        try {
-          const res = await fetch(img.imgUrl);
-          const blob = await res.blob();
-          await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-        } catch(e2) {
-          // Last fallback — open in new tab so user can copy manually
-          window.open(img.imgUrl, '_blank');
-        }
-      }
-    } else {
-      // Drive image fallback
-      await navigator.clipboard.writeText(img.driveUrl || img.imgUrl || '');
+    try {
+      const res = await fetch(img.imgUrl);
+      const blob = await res.blob();
+      // Use the actual blob type for best compatibility
+      const type = blob.type || 'image/jpeg';
+      await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+    } catch(err) {
+      // Fallback: open image in new tab so user can right-click copy
+      window.open(img.imgUrl, '_blank');
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
