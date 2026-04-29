@@ -15,13 +15,14 @@ export default function NotificationChat() {
   const intervalRef = useRef(null);
   const isAdmin = profile?.role === 'admin';
 
-  // Find student's accountId
+  // Find student's accountId by uid OR email
   useEffect(() => {
     if (!user || isAdmin) return;
     const findAccount = async () => {
       try {
         const students = await getStudents();
-        const me = students.find(s => s.uid === user.uid || s.email === user.email);
+        let me = students.find(s => s.uid === user.uid);
+        if (!me) me = students.find(s => s.email?.toLowerCase() === user.email?.toLowerCase() && !s.deletedAt);
         if (me?.accountId) setAccountId(me.accountId);
       } catch(e) { console.error(e); }
     };

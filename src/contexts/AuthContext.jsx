@@ -1,15 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updatePassword,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
+  signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  updatePassword, EmailAuthProvider, reauthenticateWithCredential,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { getUserProfile, getUserAssignedCourses, assignCourseToUser } from '../lib/db';
-import { getStudents } from '../lib/logistics';
+import { getStudents, saveStudent } from '../lib/logistics';
 
 const AuthContext = createContext(null);
 
@@ -18,20 +14,36 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Auto-sync courses from student record to Firestore assignments
-  const syncStudentCourses = async (uid) => {
+  const syncOnLogin = async (firebaseUser) => {
     try {
       const students = await getStudents();
-      const student = students.find(s => s.uid === uid);
-      if (!student || !student.courseIds?.length) return;
 
-      const assigned = await getUserAssignedCourses(uid);
-      const missing = student.courseIds.filter(id => !assigned.includes(id));
-      if (missing.length > 0) {
-        await Promise.all(missing.map(id => assignCourseToUser(uid, id)));
+      // Find student by uid OR by email
+      let student = students.find(s => s.uid === firebaseUser.uid);
+      if (!student) {
+        student = students.find(s =>
+          s.email?.toLowerCase() === firebaseUser.email?.toLowerCase() && !s.deletedAt
+        );
+      }
+
+      if (!student) return;
+
+      // If student found by email but uid not saved → save uid now
+      if (!student.uid || student.uid !== firebaseUser.uid) {
+        await saveStudent({ ...student, uid: firebaseUser.uid });
+        student = { ...student, uid: firebaseUser.uid };
+      }
+
+      // Sync courses from RTDB courseIds → Firestore assignments
+      if (student.courseIds?.length > 0) {
+        const assigned = await getUserAssignedCourses(firebaseUser.uid);
+        const missing = student.courseIds.filter(id => !assigned.includes(id));
+        if (missing.length > 0) {
+          await Promise.all(missing.map(id => assignCourseToUser(firebaseUser.uid, id)));
+        }
       }
     } catch (err) {
-      console.error('Error syncing courses:', err);
+      console.error('Sync error:', err);
     }
   };
 
@@ -42,12 +54,11 @@ export function AuthProvider({ children }) {
         try {
           const userProfile = await getUserProfile(firebaseUser.uid);
           setProfile(userProfile);
-          // Auto-sync courses for students
           if (userProfile && userProfile.role !== 'admin') {
-            syncStudentCourses(firebaseUser.uid);
+            syncOnLogin(firebaseUser);
           }
         } catch (err) {
-          console.error('Error fetching user profile:', err);
+          console.error('Profile error:', err);
         }
       } else {
         setUser(null);
@@ -78,7 +89,6 @@ export function AuthProvider({ children }) {
   };
 
   const isAdmin = profile?.role === 'admin';
-
   const value = { user, profile, loading, login, logout, changePassword, isAdmin };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
