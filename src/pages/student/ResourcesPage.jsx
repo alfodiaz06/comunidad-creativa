@@ -6,40 +6,42 @@ import { getSections, getSectionImages, DEFAULT_SECTIONS } from '../../lib/resou
 import { cloudinaryThumb, cloudinaryUrl } from '../../lib/cloudinary';
 import { ChevronLeft, Check, Copy, FolderOpen, Image as ImageIcon, X } from 'lucide-react';
 
-// ── Copy: show image in a temp window so user can right-click copy
-// OR use clipboard API with fresh blob each time
+// ── Copy image — bulletproof version
 async function copyImageToClipboard(url) {
-  // Fetch with no-cache headers to always get fresh blob
-  const fetchUrl = url.includes('cloudinary.com')
-    ? url.replace('/upload/', '/upload/fl_attachment,fl_force_strip/') 
-    : url;
+  // Step 1: fetch raw bytes with unique timestamp to bypass ALL caches
+  const sep = url.includes('?') ? '&' : '?';
+  const uniqueUrl = `${url}${sep}nocache=${Date.now()}-${Math.random()}`;
   
-  const res = await fetch(fetchUrl, {
+  const response = await fetch(uniqueUrl, {
     cache: 'no-store',
-    headers: { 'Cache-Control': 'no-cache, no-store' }
+    mode: 'cors',
+    credentials: 'omit',
   });
-  if (!res.ok) throw new Error('fetch failed');
-  const arrayBuffer = await res.arrayBuffer();
-  // Create new blob from ArrayBuffer each time — avoids browser blob cache
-  const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
   
-  // Convert to PNG via canvas with fresh context
-  const blobUrl = URL.createObjectURL(blob);
-  try {
-    const img = new Image();
-    await new Promise((res, rej) => {
-      img.onload = res;
-      img.onerror = rej;
-      img.src = blobUrl;
-    });
-    const canvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    const pngBlob = await canvas.convertToBlob({ type: 'image/png' });
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-  } finally {
-    URL.revokeObjectURL(blobUrl);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  
+  // Step 2: get raw bytes as ArrayBuffer (not blob — avoids blob cache)
+  const buffer = await response.arrayBuffer();
+  
+  // Step 3: create a fresh blob from raw bytes
+  const mimeType = response.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+  const freshBlob = new Blob([buffer], { type: mimeType });
+  
+  // Step 4: convert to PNG using createImageBitmap + OffscreenCanvas
+  // This is completely isolated from any previous canvas state
+  const imageBitmap = await createImageBitmap(freshBlob);
+  const offscreen = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
+  const ctx = offscreen.getContext('2d');
+  ctx.clearRect(0, 0, offscreen.width, offscreen.height);
+  ctx.drawImage(imageBitmap, 0, 0);
+  imageBitmap.close(); // free memory immediately
+  
+  // Step 5: get PNG blob from offscreen canvas
+  const pngBlob = await offscreen.convertToBlob({ type: 'image/png', quality: 1.0 });
+  
+  // Step 6: write to clipboard with a fresh ClipboardItem
+  const item = new ClipboardItem({ 'image/png': pngBlob });
+  await navigator.clipboard.write([item]);
 }
 
 // ── Image Viewer fullscreen
