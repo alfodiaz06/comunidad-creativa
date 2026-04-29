@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getAllCourses, getUserAssignedCourses, assignCourseToUser, removeCourseFromUser, updateUserProfile } from '../../lib/db';
 import { getAccounts, getStudents, saveStudent, deleteStudent, removeStudentFromAccount, assignStudentToAccount, statusAccount, fmt, month, money, today, uid, add30 } from '../../lib/logistics';
 import { apiCreateUser, apiUpdatePassword } from '../../lib/api';
+import { notifyAccount } from '../../lib/notifications';
 import AdminNav from '../../components/admin/AdminNav';
 import { Plus, Pencil, Trash2, X, Check, Search, Calendar, Copy, AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -431,6 +432,16 @@ export default function AdminPersonas() {
         if (password && password.length >= 6) {
           try {
             await apiUpdatePassword(st.uid, st.email || form.email, password);
+            // Notify account members of credential update
+            if (updated.accountId) {
+              await notifyAccount(updated.accountId, {
+                type: 'credentials',
+                title: '🔐 Credenciales actualizadas',
+                message: 'Las credenciales de acceso de tu cuenta han sido actualizadas.',
+                email: form.email || st.email || '',
+                password: password,
+              });
+            }
           } catch(e) { console.warn('Password sync:', e.message); }
         }
       } else if (!st.uid && (st.email || form.email) && password && password.length >= 6) {

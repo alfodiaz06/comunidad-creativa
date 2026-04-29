@@ -1,3 +1,4 @@
+import NotificationChat from '../../components/shared/NotificationChat';
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -269,6 +270,7 @@ export default function ResourcesPage() {
           onNext={() => setViewer(v => ({index: Math.min(images.length-1, v.index+1)}))}
         />
       )}
+      <NotificationChat/>
     </div>
   );
 }
