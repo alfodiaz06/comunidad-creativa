@@ -17,10 +17,7 @@ exports.handler = async (event) => {
 
   const authHeader = event.headers.authorization || '';
   const idToken = authHeader.replace('Bearer ', '');
-
-  if (!idToken) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'No autorizado' }) };
-  }
+  if (!idToken) return { statusCode: 401, body: JSON.stringify({ error: 'No autorizado' }) };
 
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
@@ -32,36 +29,47 @@ exports.handler = async (event) => {
 
     const { email, password, displayName, role = 'student' } = JSON.parse(event.body);
 
-    if (!email || !password || !displayName) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Faltan campos requeridos' }) };
+    if (!email || !password) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Email y contraseña son requeridos' }) };
+    }
+
+    if (password.length < 6) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'La contraseña debe tener al menos 6 caracteres' }) };
     }
 
     let userRecord;
     let wasExisting = false;
 
     try {
-      // Try to create new user
-      userRecord = await admin.auth().createUser({ email, password, displayName });
-    } catch (createError) {
-      if (createError.code === 'auth/email-already-exists') {
-        // User exists in Auth — update their password and reuse
-        wasExisting = true;
-        userRecord = await admin.auth().getUserByEmail(email);
-        await admin.auth().updateUser(userRecord.uid, { password, displayName });
+      // Try to get existing user first
+      userRecord = await admin.auth().getUserByEmail(email);
+      wasExisting = true;
+      // Update password (and displayName if provided)
+      const updateData = { password };
+      if (displayName) updateData.displayName = displayName;
+      await admin.auth().updateUser(userRecord.uid, updateData);
+      console.log(`Updated existing user: ${email}, uid: ${userRecord.uid}`);
+    } catch (e) {
+      if (e.code === 'auth/user-not-found') {
+        // Create new user
+        userRecord = await admin.auth().createUser({ email, password, displayName: displayName || '' });
+        console.log(`Created new user: ${email}, uid: ${userRecord.uid}`);
       } else {
-        throw createError;
+        throw e;
       }
     }
 
     // Create or update Firestore profile
-    await db.collection('users').doc(userRecord.uid).set({
-      displayName,
+    const profileData = {
       email,
       role,
       disabled: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    };
+    if (displayName) profileData.displayName = displayName;
+    if (!wasExisting) profileData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+
+    await db.collection('users').doc(userRecord.uid).set(profileData, { merge: true });
 
     return {
       statusCode: 200,
@@ -70,22 +78,19 @@ exports.handler = async (event) => {
         success: true,
         uid: userRecord.uid,
         wasExisting,
-        message: wasExisting
-          ? 'Cuenta reactivada con nueva contraseña'
-          : 'Usuario creado exitosamente'
+        message: wasExisting ? 'Contraseña actualizada correctamente' : 'Usuario creado exitosamente',
       }),
     };
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error('Error:', error);
     const messages = {
-      'auth/invalid-email': 'El correo electrónico no es válido.',
+      'auth/invalid-email': 'El correo no es válido.',
       'auth/weak-password': 'La contraseña es muy débil (mínimo 6 caracteres).',
+      'auth/invalid-password': 'Contraseña inválida (mínimo 6 caracteres).',
     };
     return {
       statusCode: 400,
-      body: JSON.stringify({
-        error: messages[error.code] || error.message || 'Error al crear usuario'
-      }),
+      body: JSON.stringify({ error: messages[error.code] || error.message || 'Error desconocido' }),
     };
   }
 };
