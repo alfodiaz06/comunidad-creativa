@@ -8,6 +8,9 @@ import { ChevronLeft, Check, Copy, FolderOpen, Image as ImageIcon, X } from 'luc
 
 // ── Image Viewer fullscreen
 function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
+  const [copied, setCopied] = useState(false);
+  const fullUrl = cloudinaryUrl(img.imgUrl, 1600) || img.imgUrl;
+
   useEffect(() => {
     const h = (e) => {
       if (e.key === 'ArrowLeft') onPrev();
@@ -18,46 +21,77 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
     return () => window.removeEventListener('keydown', h);
   }, [onPrev, onNext, onClose]);
 
-  const fullUrl = cloudinaryUrl(img.imgUrl, 1600) || img.imgUrl;
+  const handleCopy = async () => {
+    try {
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      await new Promise((res, rej) => { image.onload = res; image.onerror = rej; image.src = fullUrl; });
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.getContext('2d').drawImage(image, 0, 0);
+      await new Promise(res => canvas.toBlob(async blob => {
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+        res();
+      }, 'image/png', 1.0));
+    } catch {
+      try {
+        const res = await fetch(fullUrl);
+        const blob = await res.blob();
+        await navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})]);
+      } catch(e) { console.warn('copy failed', e); }
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/97 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{background:'rgba(0,0,0,0.96)'}}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
-        <button onClick={onClose} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
+      <div className="flex items-center justify-between px-5 py-4 flex-shrink-0">
+        <button onClick={onClose}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all text-sm">
           <X className="w-4 h-4"/> Cerrar
         </button>
-        {img.title && <p className="text-slate-500 text-sm truncate mx-4">{img.title}</p>}
-        <span className="text-slate-600 text-xs font-mono">{current+1}/{total}</span>
+        {img.title && <p className="text-slate-400 text-sm font-body truncate mx-4">{img.title}</p>}
+        <button onClick={handleCopy}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-display font-semibold transition-all
+            ${copied ? 'bg-jade-500/20 text-jade-400 border border-jade-500/20' : 'bg-brand-500/15 text-brand-300 border border-brand-500/20 hover:bg-brand-500/25'}`}>
+          {copied ? <><Check className="w-4 h-4"/>¡Copiada!</> : <><Copy className="w-4 h-4"/>Copiar</>}
+        </button>
       </div>
 
-      {/* Image */}
-      <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Image area */}
+      <div className="flex-1 flex items-center justify-center relative px-16 pb-6 overflow-hidden">
+        {/* Prev */}
         {current > 0 && (
           <button onClick={onPrev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/8 hover:bg-white/15 border border-white/10 flex items-center justify-center transition-all">
             <ChevronLeft className="w-5 h-5 text-white"/>
           </button>
         )}
+
         <img
           src={fullUrl}
           alt={img.title||''}
-          className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
-          style={{maxHeight:'calc(100vh - 120px)'}}
+          className="max-w-full max-h-full object-contain rounded-2xl"
+          style={{maxHeight:'calc(100vh - 140px)', boxShadow:'0 25px 60px rgba(0,0,0,0.5)'}}
         />
+
+        {/* Next */}
         {current < total-1 && (
           <button onClick={onNext}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/8 hover:bg-white/15 border border-white/10 flex items-center justify-center transition-all">
             <ChevronLeft className="w-5 h-5 text-white rotate-180"/>
           </button>
         )}
       </div>
 
-      {/* Dots */}
+      {/* Bottom dots */}
       {total > 1 && (
-        <div className="flex items-center justify-center gap-1.5 py-3 flex-shrink-0">
+        <div className="flex items-center justify-center gap-1.5 pb-5 flex-shrink-0">
           {Array.from({length:total}).map((_,i)=>(
-            <div key={i} className={`rounded-full transition-all ${i===current?'w-5 h-1.5 bg-brand-400':'w-1.5 h-1.5 bg-white/20'}`}/>
+            <div key={i} className={`rounded-full transition-all duration-300 ${i===current?'w-6 h-1.5 bg-brand-400':'w-1.5 h-1.5 bg-white/15'}`}/>
           ))}
         </div>
       )}
@@ -75,33 +109,23 @@ function ImageCard({ img, onClick }) {
   const handleCopy = async (e) => {
     e.stopPropagation();
     try {
-      // Draw to canvas and copy as PNG — works with Cloudinary (no CORS issues)
       const image = new Image();
       image.crossOrigin = 'anonymous';
-      await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = reject;
-        image.src = fullUrl;
-      });
+      await new Promise((res, rej) => { image.onload = res; image.onerror = rej; image.src = fullUrl; });
       const canvas = document.createElement('canvas');
       canvas.width = image.naturalWidth;
       canvas.height = image.naturalHeight;
       canvas.getContext('2d').drawImage(image, 0, 0);
-      await new Promise((resolve) => {
-        canvas.toBlob(async (blob) => {
-          await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-          resolve();
-        }, 'image/png', 1.0);
-      });
-    } catch(err) {
-      // Fallback: fetch blob directly
+      await new Promise(res => canvas.toBlob(async blob => {
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+        res();
+      }, 'image/png', 1.0));
+    } catch {
       try {
         const res = await fetch(fullUrl);
         const blob = await res.blob();
         await navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})]);
-      } catch {
-        window.open(fullUrl, '_blank');
-      }
+      } catch(e) { console.warn('copy failed', e); }
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
