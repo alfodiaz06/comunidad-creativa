@@ -6,6 +6,34 @@ import { getSections, getSectionImages, DEFAULT_SECTIONS } from '../../lib/resou
 import { cloudinaryThumb, cloudinaryUrl } from '../../lib/cloudinary';
 import { ChevronLeft, Check, Copy, FolderOpen, Image as ImageIcon, X } from 'lucide-react';
 
+// ── Shared copy function — creates fresh canvas each time
+async function copyImageToClipboard(url) {
+  // Add timestamp to bust any cache
+  const bustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+  const image = new Image();
+  image.crossOrigin = 'anonymous';
+  await new Promise((res, rej) => {
+    image.onload = res;
+    image.onerror = rej;
+    image.src = bustUrl;
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, 0, 0);
+  return new Promise((res, rej) => {
+    canvas.toBlob(async (blob) => {
+      if (!blob) { rej(new Error('No blob')); return; }
+      try {
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+        res();
+      } catch(e) { rej(e); }
+    }, 'image/png', 1.0);
+  });
+}
+
 // ── Image Viewer fullscreen
 function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
   const [copied, setCopied] = useState(false);
@@ -23,23 +51,9 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
 
   const handleCopy = async () => {
     try {
-      const image = new Image();
-      image.crossOrigin = 'anonymous';
-      await new Promise((res, rej) => { image.onload = res; image.onerror = rej; image.src = fullUrl; });
-      const canvas = document.createElement('canvas');
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      canvas.getContext('2d').drawImage(image, 0, 0);
-      await new Promise(res => canvas.toBlob(async blob => {
-        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-        res();
-      }, 'image/png', 1.0));
-    } catch {
-      try {
-        const res = await fetch(fullUrl);
-        const blob = await res.blob();
-        await navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})]);
-      } catch(e) { console.warn('copy failed', e); }
+      await copyImageToClipboard(fullUrl);
+    } catch(e) {
+      console.warn('copy failed:', e);
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -109,23 +123,9 @@ function ImageCard({ img, onClick }) {
   const handleCopy = async (e) => {
     e.stopPropagation();
     try {
-      const image = new Image();
-      image.crossOrigin = 'anonymous';
-      await new Promise((res, rej) => { image.onload = res; image.onerror = rej; image.src = fullUrl; });
-      const canvas = document.createElement('canvas');
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      canvas.getContext('2d').drawImage(image, 0, 0);
-      await new Promise(res => canvas.toBlob(async blob => {
-        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-        res();
-      }, 'image/png', 1.0));
-    } catch {
-      try {
-        const res = await fetch(fullUrl);
-        const blob = await res.blob();
-        await navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})]);
-      } catch(e) { console.warn('copy failed', e); }
+      await copyImageToClipboard(fullUrl);
+    } catch(e) {
+      console.warn('copy failed:', e);
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
