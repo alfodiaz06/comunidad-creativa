@@ -1,38 +1,43 @@
-// ── Notifications system via Firebase Realtime Database
-import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast, update } from 'firebase/database';
-import { rtdb } from './firebase';
+// ── Notifications — uses RTDB REST API (same as logistics.js)
+const RTDB = 'https://registro-clientes-67d06-default-rtdb.firebaseio.com';
 
-// Send a notification to all users of an account
+async function rtdbPush(path, data) {
+  const r = await fetch(`${RTDB}/${path}.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) throw new Error('Error guardando notificación');
+  return r.json();
+}
+
+async function rtdbRead(path) {
+  const r = await fetch(`${RTDB}/${path}.json`);
+  if (!r.ok) throw new Error('Error leyendo notificaciones');
+  return r.json();
+}
+
 export async function notifyAccount(accountId, notification) {
-  const notifRef = ref(rtdb, `notifications/${accountId}`);
-  await push(notifRef, {
+  if (!accountId) return;
+  await rtdbPush(`notifications/${accountId}`, {
     ...notification,
     createdAt: Date.now(),
     read: false,
   });
 }
 
-// Listen to notifications for an account in real time
-export function listenNotifications(accountId, callback) {
-  const notifRef = query(
-    ref(rtdb, `notifications/${accountId}`),
-    orderByChild('createdAt'),
-    limitToLast(50)
-  );
-  onValue(notifRef, (snap) => {
-    const data = snap.val();
-    if (!data) { callback([]); return; }
-    const list = Object.entries(data)
-      .map(([id, n]) => ({ id, ...n }))
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    callback(list);
-  });
-  return () => off(notifRef);
+export async function getNotifications(accountId) {
+  if (!accountId) return [];
+  const data = await rtdbRead(`notifications/${accountId}`);
+  if (!data) return [];
+  return Object.entries(data)
+    .map(([id, n]) => ({ id, ...n }))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+    .slice(-50);
 }
 
-// Mark all as read
-export async function markAllRead(accountId) {
-  // We'll handle read state locally via localStorage per user
+export function markAllRead(accountId) {
+  if (!accountId) return;
   localStorage.setItem(`notif_read_${accountId}`, Date.now().toString());
 }
 

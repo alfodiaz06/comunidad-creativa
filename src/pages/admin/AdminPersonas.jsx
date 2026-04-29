@@ -415,40 +415,47 @@ export default function AdminPersonas() {
       const st=students.find(s=>s.id===existing.studentId);
       if(!st) return;
       const updated={...st,name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,expiresAt:form.expiresAt,role:form.role,disabled:form.disabled,courseIds,accessPassword:password};
+      // Handle account change
       if(form.accountId!==st.accountId){
         await removeStudentFromAccount(accounts,st.id);
         updated.accountId=form.accountId||null;
         await saveStudent(updated);
         if(form.accountId) await assignStudentToAccount(accounts,form.accountId,st.id);
-      } else { await saveStudent(updated); }
+      } else {
+        await saveStudent(updated);
+      }
+      // Sync to Firestore if has uid
       if(st.uid){
-        const currentCourses=await getUserAssignedCourses(st.uid);
-        const toAdd=courseIds.filter(id=>!currentCourses.includes(id));
-        const toRemove=currentCourses.filter(id=>!courseIds.includes(id));
-        await Promise.all([...toAdd.map(id=>assignCourseToUser(st.uid,id)),...toRemove.map(id=>removeCourseFromUser(st.uid,id))]);
-        // Sync disabled status to Firestore so login is blocked/unblocked immediately
-        await updateUserProfile(st.uid, { disabled: form.disabled, role: form.role });
-        // Always sync password to Firebase Auth
+        try {
+          const currentCourses=await getUserAssignedCourses(st.uid);
+          const toAdd=courseIds.filter(id=>!currentCourses.includes(id));
+          const toRemove=currentCourses.filter(id=>!courseIds.includes(id));
+          await Promise.all([...toAdd.map(id=>assignCourseToUser(st.uid,id)),...toRemove.map(id=>removeCourseFromUser(st.uid,id))]);
+          await updateUserProfile(st.uid, { disabled: form.disabled, role: form.role });
+        } catch(e) { console.warn('Firestore sync:', e.message); }
+        // Sync password — always, independently
         if (password && password.length >= 6) {
           try {
             await apiUpdatePassword(st.uid, st.email || form.email, password);
-            // Notify account members of credential update
-            if (updated.accountId) {
-              await notifyAccount(updated.accountId, {
-                type: 'credentials',
-                title: '🔐 Credenciales actualizadas',
-                message: 'Las credenciales de acceso de tu cuenta han sido actualizadas.',
-                email: form.email || st.email || '',
-                password: password,
-              });
-            }
           } catch(e) { console.warn('Password sync:', e.message); }
         }
-      } else if (!st.uid && (st.email || form.email) && password && password.length >= 6) {
-        // No uid saved but may exist in Auth — try to update by email
+      } else if ((st.email || form.email) && password && password.length >= 6) {
         try {
           await apiUpdatePassword(null, st.email || form.email, password);
         } catch(e) { console.warn('Password sync by email:', e.message); }
+      }
+      // Notify account — always, independently of password
+      const targetAccountId = updated.accountId || st.accountId;
+      if (targetAccountId) {
+        try {
+          await notifyAccount(targetAccountId, {
+            type: 'credentials',
+            title: '🔐 Credenciales actualizadas',
+            message: `Los datos de acceso de ${form.displayName} han sido actualizados.`,
+            email: form.email || st.email || '',
+            password: password,
+          });
+        } catch(e) { console.warn('Notify:', e.message); }
       }
     } else {
       let uid_firebase=null;
