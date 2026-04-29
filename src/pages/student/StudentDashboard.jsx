@@ -1,11 +1,11 @@
 import NotificationChat from '../../components/shared/NotificationChat';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserAssignedCourses, getCourse, getAllUserProgress, assignCourseToUser } from '../../lib/db';
-import { getStudents, saveStudent } from '../../lib/logistics';
+import { getStudents, saveStudent, getAccounts } from '../../lib/logistics';
 import StudentNav from '../../components/student/StudentNav';
-import { BookOpen, ChevronRight, Award, Clock, BarChart2 } from 'lucide-react';
+import { BookOpen, ChevronRight, Award, Clock, BarChart2, Copy, Check, ExternalLink } from 'lucide-react';
 
 function CourseCard({ course, completedLessons, totalLessons }) {
   const pct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
@@ -53,6 +53,36 @@ export default function StudentDashboard() {
   const { user, profile } = useAuth();
   const [courses, setCourses] = useState([]);
   const [progressMap, setProgressMap] = useState({});
+  const [account, setAccount] = useState(null); // student's Gemini account
+  const [copiedField, setCopiedField] = useState(null);
+  const pollRef = useRef(null);
+
+  // Load account credentials and poll every 30s for updates
+  const loadAccount = async () => {
+    if (!user) return;
+    try {
+      const students = await getStudents();
+      const me = students.find(s => s.uid === user.uid) ||
+                 students.find(s => s.email?.toLowerCase() === user.email?.toLowerCase() && !s.deletedAt);
+      if (me?.accountId) {
+        const accounts = await getAccounts();
+        const acc = accounts.find(a => a.id === me.accountId);
+        if (acc) setAccount(acc);
+      }
+    } catch(e) { console.error(e); }
+  };
+
+  useEffect(() => {
+    loadAccount();
+    pollRef.current = setInterval(loadAccount, 30000);
+    return () => clearInterval(pollRef.current);
+  }, [user]);
+
+  const copyField = (text, field) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -144,6 +174,7 @@ export default function StudentDashboard() {
         {/* Quick access */}
         <section className="mb-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Recursos card */}
             <Link to="/resources"
               className="card hover:bg-obsidian-700/60 hover:border-brand-500/20 transition-all flex items-center gap-4 cursor-pointer">
               <div className="w-12 h-12 rounded-xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center text-2xl flex-shrink-0">
@@ -155,6 +186,45 @@ export default function StudentDashboard() {
               </div>
               <ChevronRight className="w-4 h-4 text-slate-600 ml-auto flex-shrink-0"/>
             </Link>
+
+            {/* Account credentials card */}
+            <div className="card border border-white/5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-jade-400 animate-pulse"/>
+                <h3 className="font-display font-semibold text-white text-sm">Tu cuenta actualizada</h3>
+              </div>
+              {account ? (
+                <div className="space-y-2">
+                  {/* Email */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-obsidian-700 border border-white/5">
+                    <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Correo:</span>
+                    <span className="text-xs font-mono text-slate-200 flex-1 truncate">{account.email}</span>
+                    <button onClick={() => copyField(account.email, 'email')}
+                      className={`p-1 rounded transition-colors flex-shrink-0 ${copiedField==='email'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                      {copiedField==='email' ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
+                    </button>
+                  </div>
+                  {/* Password */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-obsidian-700 border border-white/5">
+                    <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Contraseña:</span>
+                    <span className="text-xs font-mono text-slate-200 flex-1 truncate">{account.password}</span>
+                    <button onClick={() => copyField(account.password, 'password')}
+                      className={`p-1 rounded transition-colors flex-shrink-0 ${copiedField==='password'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                      {copiedField==='password' ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
+                    </button>
+                  </div>
+                  {/* Flow link */}
+                  <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2 rounded-lg bg-brand-500/10 border border-brand-500/20 hover:bg-brand-500/15 transition-colors">
+                    <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Accede a:</span>
+                    <span className="text-xs font-mono text-brand-300 flex-1">Flow ↗</span>
+                    <ExternalLink className="w-3 h-3 text-brand-400 flex-shrink-0"/>
+                  </a>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 font-mono">Sin cuenta asignada</div>
+              )}
+            </div>
           </div>
         </section>
 
