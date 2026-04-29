@@ -40,13 +40,18 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
           </button>
         )}
 
-        <iframe
-          src={embedUrl}
-          className="w-full h-full border-0"
-          allow="autoplay"
-          title={img.title || `Imagen ${current + 1}`}
-          style={{background:'transparent'}}
-        />
+        <div className="relative w-full h-full">
+          <iframe
+            src={embedUrl}
+            className="w-full h-full border-0"
+            allow="autoplay"
+            title={img.title || `Imagen ${current + 1}`}
+            style={{background:'transparent'}}
+          />
+          {/* Block Drive's top bar overlay — cover it with transparent div */}
+          <div className="absolute top-0 left-0 right-0 h-12 bg-black/95 pointer-events-none z-10"/>
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-black/95 pointer-events-none z-10"/>
+        </div>
 
         {/* Next arrow */}
         {current < total - 1 && (
@@ -80,11 +85,26 @@ function ImageCard({ img, onClick }) {
   const handleCopy = async (e) => {
     e.stopPropagation();
     try {
+      // Draw image to canvas then copy as blob
       const imgUrl = driveToThumb(img.driveUrl, 1200);
-      const res = await fetch(imgUrl);
-      const blob = await res.blob();
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+        image.src = imgUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.getContext('2d').drawImage(image, 0, 0);
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        }
+      }, 'image/png');
     } catch {
+      // Last resort fallback
       await navigator.clipboard.writeText(img.driveUrl);
     }
     setCopied(true);
