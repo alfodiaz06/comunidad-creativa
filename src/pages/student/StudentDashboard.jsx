@@ -2,7 +2,8 @@ import NotificationChat from '../../components/shared/NotificationChat';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserAssignedCourses, getCourse, getAllUserProgress } from '../../lib/db';
+import { getUserAssignedCourses, getCourse, getAllUserProgress, assignCourseToUser } from '../../lib/db';
+import { getStudents, saveStudent } from '../../lib/logistics';
 import StudentNav from '../../components/student/StudentNav';
 import { BookOpen, ChevronRight, Award, Clock, BarChart2 } from 'lucide-react';
 
@@ -58,6 +59,25 @@ export default function StudentDashboard() {
     if (!user) return;
     const load = async () => {
       try {
+        // First sync: find student by uid or email and assign missing courses
+        const students = await getStudents();
+        let student = students.find(s => s.uid === user.uid);
+        if (!student) student = students.find(s => s.email?.toLowerCase() === user.email?.toLowerCase() && !s.deletedAt);
+
+        if (student) {
+          // Save uid if missing
+          if (!student.uid) await saveStudent({ ...student, uid: user.uid });
+          // Sync courseIds → Firestore assignments
+          if (student.courseIds?.length > 0) {
+            const already = await getUserAssignedCourses(user.uid);
+            const missing = student.courseIds.filter(id => !already.includes(id));
+            if (missing.length > 0) {
+              await Promise.all(missing.map(id => assignCourseToUser(user.uid, id)));
+            }
+          }
+        }
+
+        // Now load courses from Firestore
         const courseIds = await getUserAssignedCourses(user.uid);
         const courseData = await Promise.all(courseIds.map(id => getCourse(id)));
         const validCourses = courseData.filter(Boolean);
