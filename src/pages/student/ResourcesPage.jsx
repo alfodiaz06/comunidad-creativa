@@ -26,23 +26,30 @@ async function loadLocalImages(slug) {
   const prefix = SLUG_PREFIX[slug] || slug;
 
   for (let i = 1; i <= 20; i++) {
-    // Try "Hero 1.jpg", "Hero 2.jpg", etc.
-    const name = `${prefix} ${i}`;
     let found = false;
-    for (const ext of exts) {
-      const url = `/resources/${slug}/${encodeURIComponent(name)}.${ext}`;
-      try {
-        const r = await fetch(url, { method: 'HEAD' });
-        if (r.ok) {
-          images.push({ id: `${slug}_${i}`, imgUrl: url, title: name });
-          found = true;
-          break;
-        }
-      } catch { /* skip */ }
+    // Try multiple naming patterns
+    const candidates = [
+      `${prefix} ${i}`,   // "Hero 1"
+      `${prefix}${i}`,    // "Hero1"
+      `${prefix} 0${i}`,  // "Hero 01"
+      `${i}`,             // "1"
+    ];
+    for (const name of candidates) {
+      for (const ext of exts) {
+        const url = `/resources/${slug}/${encodeURIComponent(name)}.${ext}`;
+        try {
+          const r = await fetch(url, { method: 'HEAD' });
+          if (r.ok) {
+            images.push({ id: `${slug}_${i}`, imgUrl: url, title: `${prefix} ${i}` });
+            found = true;
+            break;
+          }
+        } catch { /* skip */ }
+      }
+      if (found) break;
     }
-    // If not found and i > 3, stop trying (no more images)
-    if (!found && i > 3 && images.length === 0) break;
     if (!found && images.length > 0) break;
+    if (!found && i > 5) break;
   }
   return images;
 }
@@ -111,13 +118,33 @@ function ImageCard({ img, onClick }) {
   const handleCopy = async (e) => {
     e.stopPropagation();
     try {
-      const res = await fetch(img.imgUrl);
-      const blob = await res.blob();
-      // Use the actual blob type for best compatibility
-      const type = blob.type || 'image/jpeg';
-      await navigator.clipboard.write([new ClipboardItem({ [type]: blob })]);
+      // Load image into canvas then copy as PNG blob
+      const imgEl = new Image();
+      imgEl.crossOrigin = 'anonymous';
+      await new Promise((res, rej) => {
+        imgEl.onload = res;
+        imgEl.onerror = rej;
+        imgEl.src = img.imgUrl + '?t=' + Date.now(); // cache bust
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = imgEl.naturalWidth;
+      canvas.height = imgEl.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imgEl, 0, 0);
+      // Copy canvas as PNG blob to clipboard
+      canvas.toBlob(async (blob) => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        } catch {
+          // If clipboard API fails, try direct fetch blob
+          const res = await fetch(img.imgUrl);
+          const b = await res.blob();
+          await navigator.clipboard.write([new ClipboardItem({ [b.type]: b })]);
+        }
+      }, 'image/png', 1.0);
     } catch(err) {
-      // Fallback: open image in new tab so user can right-click copy
+      console.warn('Copy failed:', err);
+      // Open in new tab as last resort
       window.open(img.imgUrl, '_blank');
     }
     setCopied(true);
