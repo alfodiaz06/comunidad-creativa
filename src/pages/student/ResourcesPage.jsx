@@ -6,39 +6,39 @@ import { getSections, getSectionImages, DEFAULT_SECTIONS } from '../../lib/resou
 import { cloudinaryThumb, cloudinaryUrl } from '../../lib/cloudinary';
 import { ChevronLeft, Check, Copy, FolderOpen, Image as ImageIcon, X } from 'lucide-react';
 
-// ── Shared copy function — fetch blob directly, no canvas needed
+// ── Copy: show image in a temp window so user can right-click copy
+// OR use clipboard API with fresh blob each time
 async function copyImageToClipboard(url) {
-  // Use fl_attachment flag in Cloudinary URL to get raw file
-  // Replace /upload/ with /upload/fl_attachment/ for direct download
+  // Fetch with no-cache headers to always get fresh blob
   const fetchUrl = url.includes('cloudinary.com')
-    ? url.replace('/upload/', '/upload/fl_attachment/')
+    ? url.replace('/upload/', '/upload/fl_attachment,fl_force_strip/') 
     : url;
-
-  const res = await fetch(fetchUrl, { cache: 'no-store' });
+  
+  const res = await fetch(fetchUrl, {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache, no-store' }
+  });
   if (!res.ok) throw new Error('fetch failed');
-  const blob = await res.blob();
-
-  // Convert to PNG if not already
-  if (blob.type === 'image/png') {
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-  } else {
-    // Draw to canvas to convert to PNG
-    const blobUrl = URL.createObjectURL(blob);
+  const arrayBuffer = await res.arrayBuffer();
+  // Create new blob from ArrayBuffer each time — avoids browser blob cache
+  const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+  
+  // Convert to PNG via canvas with fresh context
+  const blobUrl = URL.createObjectURL(blob);
+  try {
     const img = new Image();
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = blobUrl; });
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    canvas.getContext('2d').drawImage(img, 0, 0);
-    URL.revokeObjectURL(blobUrl);
     await new Promise((res, rej) => {
-      canvas.toBlob(async (pngBlob) => {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-          res();
-        } catch(e) { rej(e); }
-      }, 'image/png');
+      img.onload = res;
+      img.onerror = rej;
+      img.src = blobUrl;
     });
+    const canvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const pngBlob = await canvas.convertToBlob({ type: 'image/png' });
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+  } finally {
+    URL.revokeObjectURL(blobUrl);
   }
 }
 
