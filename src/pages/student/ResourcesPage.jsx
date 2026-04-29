@@ -40,6 +40,7 @@ async function copyImageToClipboard(url) {
 function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
   const [copied, setCopied] = useState(false);
   const fullUrl = cloudinaryUrl(img.imgUrl, 1600) || img.imgUrl;
+  const copyUrl = cloudinaryUrl(img.imgUrl, 800) || img.imgUrl;
 
   useEffect(() => {
     const h = (e) => {
@@ -55,7 +56,7 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
 
   const handleCopy = async () => {
     try {
-      await copyImageToClipboard(fullUrl);
+      await copyImageToClipboard(copyUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch(e) {
@@ -130,9 +131,23 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
 function ImageCard({ img, onClick }) {
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [preloaded, setPreloaded] = useState(null); // cached blob for instant copy
   const thumbUrl = img.thumbUrl || cloudinaryThumb(img.imgUrl, 400) || img.imgUrl;
-  const fullUrl = cloudinaryUrl(img.imgUrl, 1200) || img.imgUrl;
+  const fullUrl = cloudinaryUrl(img.imgUrl, 800) || img.imgUrl;
   const isDrive = fullUrl?.includes('drive.google.com') || fullUrl?.includes('googleapis.com');
+
+  // Preload blob on hover so copy is instant
+  const handleMouseEnter = async () => {
+    if (isDrive || preloaded) return;
+    try {
+      const sep = fullUrl.includes('?') ? '&' : '?';
+      const res = await fetch(`${fullUrl}${sep}nc=pre`, { cache: 'force-cache', mode: 'cors', credentials: 'omit' });
+      if (res.ok) {
+        const buf = await res.arrayBuffer();
+        setPreloaded(buf);
+      }
+    } catch { /* silent */ }
+  };
 
   const handleCopy = async (e) => {
     e.stopPropagation();
@@ -143,17 +158,30 @@ function ImageCard({ img, onClick }) {
     }
     setCopied('loading');
     try {
-      await copyImageToClipboard(fullUrl);
+      if (preloaded) {
+        // Use preloaded buffer — instant!
+        const blob = new Blob([preloaded], { type: 'image/jpeg' });
+        const bitmap = await createImageBitmap(blob);
+        const offscreen = new OffscreenCanvas(bitmap.width, bitmap.height);
+        offscreen.getContext('2d').drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const pngBlob = await offscreen.convertToBlob({ type: 'image/png', quality: 1.0 });
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+      } else {
+        await copyImageToClipboard(fullUrl);
+      }
       setCopied('done');
     } catch(err) {
       console.error('COPY ERROR:', err.message);
-      setCopied('error');
+      // Fallback to full copy
+      try { await copyImageToClipboard(fullUrl); setCopied('done'); }
+      catch { setCopied('error'); }
     }
     setTimeout(() => setCopied(false), 3000);
   };
 
   return (
-    <div className="card p-0 overflow-hidden flex flex-col hover:border-brand-500/30 hover:scale-[1.02] transition-all duration-200">
+    <div className="card p-0 overflow-hidden flex flex-col hover:border-brand-500/30 hover:scale-[1.02] transition-all duration-200" onMouseEnter={handleMouseEnter}>
       <button onClick={onClick} className="aspect-square bg-obsidian-700 relative flex items-center justify-center w-full overflow-hidden group cursor-pointer">
         {!loaded && (
           <div className="absolute inset-0 flex items-center justify-center">
