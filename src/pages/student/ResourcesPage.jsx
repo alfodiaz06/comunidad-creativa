@@ -6,42 +6,34 @@ import { getSections, getSectionImages, DEFAULT_SECTIONS } from '../../lib/resou
 import { cloudinaryThumb, cloudinaryUrl } from '../../lib/cloudinary';
 import { ChevronLeft, Check, Copy, FolderOpen, Image as ImageIcon, X } from 'lucide-react';
 
-// ── Copy image — bulletproof version
+// ── Copy image — works with Cloudinary, not Drive (CORS blocked)
+function isDriveUrl(url) {
+  return url?.includes('drive.google.com') || url?.includes('googleapis.com');
+}
+
 async function copyImageToClipboard(url) {
-  // Step 1: fetch raw bytes with unique timestamp to bypass ALL caches
+  if (isDriveUrl(url)) {
+    throw new Error('DRIVE_CORS');
+  }
+  
+  // Unique URL to bypass ALL browser caches
   const sep = url.includes('?') ? '&' : '?';
-  const uniqueUrl = `${url}${sep}nocache=${Date.now()}-${Math.random()}`;
+  const uniqueUrl = `${url}${sep}nc=${Date.now()}${Math.floor(Math.random()*9999)}`;
   
-  const response = await fetch(uniqueUrl, {
-    cache: 'no-store',
-    mode: 'cors',
-    credentials: 'omit',
-  });
-  
+  const response = await fetch(uniqueUrl, { cache: 'no-store', mode: 'cors', credentials: 'omit' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   
-  // Step 2: get raw bytes as ArrayBuffer (not blob — avoids blob cache)
   const buffer = await response.arrayBuffer();
-  
-  // Step 3: create a fresh blob from raw bytes
   const mimeType = response.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
   const freshBlob = new Blob([buffer], { type: mimeType });
-  
-  // Step 4: convert to PNG using createImageBitmap + OffscreenCanvas
-  // This is completely isolated from any previous canvas state
   const imageBitmap = await createImageBitmap(freshBlob);
   const offscreen = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
   const ctx = offscreen.getContext('2d');
   ctx.clearRect(0, 0, offscreen.width, offscreen.height);
   ctx.drawImage(imageBitmap, 0, 0);
-  imageBitmap.close(); // free memory immediately
-  
-  // Step 5: get PNG blob from offscreen canvas
+  imageBitmap.close();
   const pngBlob = await offscreen.convertToBlob({ type: 'image/png', quality: 1.0 });
-  
-  // Step 6: write to clipboard with a fresh ClipboardItem
-  const item = new ClipboardItem({ 'image/png': pngBlob });
-  await navigator.clipboard.write([item]);
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
 }
 
 // ── Image Viewer fullscreen
@@ -59,14 +51,21 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
     return () => window.removeEventListener('keydown', h);
   }, [onPrev, onNext, onClose]);
 
+  const [copyError, setCopyError] = useState(false);
+
   const handleCopy = async () => {
     try {
       await copyImageToClipboard(fullUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch(e) {
-      console.warn('copy failed:', e);
+      if (e.message === 'DRIVE_CORS') {
+        setCopyError(true);
+        setTimeout(() => setCopyError(false), 3000);
+      } else {
+        console.warn('copy failed:', e);
+      }
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -80,8 +79,12 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
         {img.title && <p className="text-slate-400 text-sm font-body truncate mx-4">{img.title}</p>}
         <button onClick={handleCopy}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-display font-semibold transition-all
-            ${copied ? 'bg-jade-500/20 text-jade-400 border border-jade-500/20' : 'bg-brand-500/15 text-brand-300 border border-brand-500/20 hover:bg-brand-500/25'}`}>
-          {copied ? <><Check className="w-4 h-4"/>¡Copiada!</> : <><Copy className="w-4 h-4"/>Copiar</>}
+            ${copied ? 'bg-jade-500/20 text-jade-400 border border-jade-500/20'
+              : copyError ? 'bg-red-500/20 text-red-400 border border-red-500/20'
+              : 'bg-brand-500/15 text-brand-300 border border-brand-500/20 hover:bg-brand-500/25'}`}>
+          {copied ? <><Check className="w-4 h-4"/>¡Copiada!</>
+            : copyError ? <>⚠️ Imagen de Drive — sube a Cloudinary desde Admin</>
+            : <><Copy className="w-4 h-4"/>Copiar</>}
         </button>
       </div>
 
@@ -129,16 +132,24 @@ function ImageCard({ img, onClick }) {
   const [copied, setCopied] = useState(false);
   const thumbUrl = img.thumbUrl || cloudinaryThumb(img.imgUrl, 400) || img.imgUrl;
   const fullUrl = cloudinaryUrl(img.imgUrl, 1200) || img.imgUrl;
+  const isDrive = fullUrl?.includes('drive.google.com') || fullUrl?.includes('googleapis.com');
 
   const handleCopy = async (e) => {
     e.stopPropagation();
+    if (isDrive) {
+      setCopied('drive');
+      setTimeout(() => setCopied(false), 3000);
+      return;
+    }
+    setCopied('loading');
     try {
       await copyImageToClipboard(fullUrl);
-    } catch(e) {
-      console.warn('copy failed:', e);
+      setCopied('done');
+    } catch(err) {
+      console.error('COPY ERROR:', err.message);
+      setCopied('error');
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 3000);
   };
 
   return (
@@ -162,11 +173,16 @@ function ImageCard({ img, onClick }) {
         <span className="text-xs font-body text-slate-400 truncate flex-1">{img.title||'Imagen'}</span>
         <button onClick={handleCopy}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-display font-semibold flex-shrink-0 transition-all
-            ${copied
-              ? 'bg-jade-500/20 text-jade-400 border border-jade-500/20'
-              : 'bg-brand-500/10 text-brand-400 border border-brand-500/20 hover:bg-brand-500/20'
+            ${copied==='done' ? 'bg-jade-500/20 text-jade-400 border border-jade-500/20'
+            : copied==='error' ? 'bg-red-500/20 text-red-400 border border-red-500/20'
+            : copied==='loading' ? 'bg-brand-500/10 text-brand-300 border border-brand-500/20'
+            : 'bg-brand-500/10 text-brand-400 border border-brand-500/20 hover:bg-brand-500/20'
             }`}>
-          {copied ? <><Check className="w-3 h-3"/>¡Copiada!</> : <><Copy className="w-3 h-3"/>Copiar</>}
+          {copied==='loading' ? <><div className="w-3 h-3 rounded-full border-2 border-brand-400/30 border-t-brand-400 animate-spin"/>Copiando...</>
+            : copied==='done' ? <><Check className="w-3 h-3"/>¡Copiada!</>
+            : copied==='drive' ? <>⚠️ Sube desde Admin</>
+            : copied==='error' ? <>✗ Error</>
+            : <><Copy className="w-3 h-3"/>Copiar</>}
         </button>
       </div>
     </div>
