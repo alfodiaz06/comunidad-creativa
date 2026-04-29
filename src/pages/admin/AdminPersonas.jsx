@@ -437,23 +437,30 @@ export default function AdminPersonas() {
         if (password && password.length >= 6) {
           try {
             await apiUpdatePassword(st.uid, st.email || form.email, password);
-          } catch(e) { console.warn('Password sync:', e.message); }
+          } catch(e) {
+            console.error('Password sync failed:', e.message);
+            // Try by email as fallback
+            try { await apiUpdatePassword(null, st.email || form.email, password); }
+            catch(e2) { console.error('Password sync by email also failed:', e2.message); }
+          }
         }
       } else if ((st.email || form.email) && password && password.length >= 6) {
         try {
           await apiUpdatePassword(null, st.email || form.email, password);
-        } catch(e) { console.warn('Password sync by email:', e.message); }
+        } catch(e) { console.error('Password sync by email:', e.message); }
       }
       // Notify account — always, independently of password
       const targetAccountId = updated.accountId || st.accountId;
       if (targetAccountId) {
         try {
+          // Get the ACCOUNT credentials (not the user's)
+          const account = accounts.find(a => a.id === targetAccountId);
           await notifyAccount(targetAccountId, {
             type: 'credentials',
-            title: '🔐 Credenciales actualizadas',
-            message: `Los datos de acceso de ${form.displayName} han sido actualizados.`,
-            email: form.email || st.email || '',
-            password: password,
+            title: '🔐 Credenciales de cuenta actualizadas',
+            message: 'El administrador ha actualizado los datos de acceso de tu cuenta Gemini.',
+            email: account?.email || '',
+            password: account?.password || '',
           });
         } catch(e) { console.warn('Notify:', e.message); }
       }

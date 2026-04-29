@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminNav from '../../components/admin/AdminNav';
 import { getAccounts, getStudents, saveAccount, deleteAccount, saveStudent, removeStudentFromAccount, statusAccount, fmt, month, money, today, add30, uid } from '../../lib/logistics';
+import { notifyAccount } from '../../lib/notifications';
 import { Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Copy, RefreshCw, ChevronLeft, Lock, Unlock, AlertCircle, Calendar } from 'lucide-react';
 
 function StatusBadge({ exp }) {
@@ -181,7 +182,23 @@ export default function AdminCuentas() {
   const active = students.filter(s=>!s.deletedAt);
   const currentAcc = selected ? accounts.find(a=>a.id===selected) : null;
 
-  const handleSaveAccount = async (acc) => { await saveAccount(acc); await load(); };
+  const handleSaveAccount = async (acc) => {
+    const oldAcc = accounts.find(a => a.id === acc.id);
+    await saveAccount(acc);
+    // If credentials changed, notify all students in this account
+    if (oldAcc && (oldAcc.email !== acc.email || oldAcc.password !== acc.password)) {
+      try {
+        await notifyAccount(acc.id, {
+          type: 'credentials',
+          title: '🔐 Credenciales de cuenta actualizadas',
+          message: 'El administrador ha actualizado los datos de acceso de tu cuenta Gemini.',
+          email: acc.email,
+          password: acc.password,
+        });
+      } catch(e) { console.warn('Notify:', e.message); }
+    }
+    await load();
+  };
   const handleRenew = async (id, date) => {
     const acc=accounts.find(a=>a.id===id); if(!acc) return;
     acc.createdAt=date; acc.expiresAt=add30(date);
