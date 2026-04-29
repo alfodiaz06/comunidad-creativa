@@ -74,12 +74,26 @@ function ImageViewer({ img, onClose, onPrev, onNext, total, current }) {
 function ImageCard({ img, onClick }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+  const [copied, setCopied] = useState(false);
   const thumbUrl = driveToThumb(img.driveUrl, 400);
 
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    try {
+      const imgUrl = driveToThumb(img.driveUrl, 1200);
+      const res = await fetch(imgUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    } catch {
+      await navigator.clipboard.writeText(img.driveUrl);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <button onClick={onClick}
-      className="card p-0 overflow-hidden group cursor-pointer hover:border-brand-500/30 hover:scale-[1.02] transition-all duration-200 text-left">
-      <div className="aspect-square bg-obsidian-700 relative flex items-center justify-center">
+    <div className="card p-0 overflow-hidden flex flex-col hover:border-brand-500/30 hover:scale-[1.02] transition-all duration-200">
+      <button onClick={onClick} className="aspect-square bg-obsidian-700 relative flex items-center justify-center w-full overflow-hidden group cursor-pointer">
         {!error ? (
           <>
             {!loaded && (
@@ -96,7 +110,6 @@ function ImageCard({ img, onClick }) {
             />
           </>
         ) : (
-          // Fallback: show Drive embed as thumbnail
           <iframe
             src={driveToEmbed(img.driveUrl)}
             className="w-full h-full border-0 pointer-events-none"
@@ -105,15 +118,19 @@ function ImageCard({ img, onClick }) {
           />
         )}
         <div className="absolute inset-0 bg-brand-500/0 group-hover:bg-brand-500/10 transition-colors"/>
+      </button>
+      <div className="px-2.5 py-2 flex items-center gap-2">
+        <span className="text-xs font-body text-slate-400 truncate flex-1">{img.title || 'Imagen'}</span>
+        <button onClick={handleCopy}
+          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-display font-semibold flex-shrink-0 transition-all
+            ${copied ? 'bg-jade-500/20 text-jade-400 border border-jade-500/20' : 'bg-brand-500/10 text-brand-400 border border-brand-500/20 hover:bg-brand-500/20'}`}>
+          {copied ? <><Check className="w-3 h-3"/>Copiada</> : <><Copy className="w-3 h-3"/>Copiar</>}
+        </button>
       </div>
-      {img.title && (
-        <div className="px-3 py-2">
-          <p className="text-xs font-body text-slate-400 truncate">{img.title}</p>
-        </div>
-      )}
-    </button>
+    </div>
   );
 }
+
 
 // ── MAIN PAGE
 export default function ResourcesPage() {
