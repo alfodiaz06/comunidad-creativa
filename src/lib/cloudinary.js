@@ -37,3 +37,9 @@ export function cloudinaryThumb(url, size = 400) {
   if (!url || !url.includes('cloudinary.com')) return url;
   return url.replace('/upload/', `/upload/w_${size},h_${size},c_fill,q_auto,f_auto/`);
 }
+
+// Get download URL with CORS headers enabled
+export function cloudinaryDownload(url) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  return url.replace('/upload/', '/upload/fl_attachment/');
+}
