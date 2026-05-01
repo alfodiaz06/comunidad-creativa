@@ -61,37 +61,6 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   const [loading, setLoading] = useState(false);
   const [editingPay, setEditingPay] = useState(null);
 
-  // Generate periods: one per 30-day cycle from startDate, only past/current ones
-  const getPeriods = () => {
-    const start = new Date(student.startDate || today());
-    start.setHours(0,0,0,0);
-    const now = new Date();
-    now.setHours(0,0,0,0);
-    const periods = [];
-    let i = 0;
-    while(i < 24) {
-      const pStart = new Date(start);
-      pStart.setDate(pStart.getDate() + i * 30);
-      pStart.setHours(0,0,0,0);
-      if(pStart > now) break;
-      const pEnd = new Date(pStart);
-      pEnd.setDate(pEnd.getDate() + 29);
-      periods.push({
-        key: pStart.toISOString().slice(0,10),
-        label: `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`,
-        isFirst: i === 0,
-        defaultAmount: i === 0 ? 80000 : 60000,
-      });
-      i++;
-    }
-    return periods;
-  };
-
-  const findPayment = (key) => {
-    return payments.find(p => p.month === key)
-      || payments.find(p => p.month === key.slice(0,7));
-  };
-
   const savePayments = async (newP) => {
     setPayments(newP);
     setLoading(true);
@@ -99,38 +68,53 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
     finally { setLoading(false); }
   };
 
-  const togglePay = async (key, defaultAmount) => {
-    const existing = findPayment(key);
-    let newP;
-    if(existing) {
-      newP = payments.map(p => (p.month===key || p.month===key.slice(0,7)) ? {...p, paid:!p.paid} : p);
-    } else {
-      newP = [...payments, {month: key, paid: true, amount: defaultAmount}];
-    }
+  const togglePay = async (idx) => {
+    const newP = payments.map((p,i) => i===idx ? {...p, paid:!p.paid} : p);
     await savePayments(newP);
   };
 
-  const deletePay = async (key) => {
+  const deletePay = async (idx) => {
     if(!confirm('¿Eliminar este pago?')) return;
-    const newP = payments.filter(p => p.month !== key && p.month !== key.slice(0,7));
+    const newP = payments.filter((_,i) => i!==idx);
     await savePayments(newP);
   };
 
-  const handleEditSave = async (key, form) => {
-    const existing = findPayment(key);
-    let newP;
-    if(existing) {
-      newP = payments.map(p => (p.month===key || p.month===key.slice(0,7)) ? {...p, ...form, month:key} : p);
-    } else {
-      newP = [...payments, {month: key, ...form}];
-    }
-    await savePayments(newP);
-    setEditingPay(null);
+  const addPeriod = async () => {
+    // Next period starts 30 days after startDate + (payments.length * 30)
+    const start = new Date(student.startDate || today());
+    const pStart = new Date(start);
+    pStart.setDate(pStart.getDate() + payments.length * 30);
+    const pEnd = new Date(pStart);
+    pEnd.setDate(pEnd.getDate() + 29);
+    const label = `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`;
+    const key = pStart.toISOString().slice(0,10);
+    // Check not already added
+    if(payments.find(p=>p.month===key)) return;
+    await savePayments([...payments, {month: key, paid: false, amount: 60000}]);
   };
 
-  const periods = getPeriods();
+  // Check if we can add next period (30 days must have passed from last period start)
+  const canAddPeriod = () => {
+    if(payments.length === 0) return false;
+    const start = new Date(student.startDate || today());
+    const nextPeriodStart = new Date(start);
+    nextPeriodStart.setDate(nextPeriodStart.getDate() + payments.length * 30);
+    nextPeriodStart.setHours(0,0,0,0);
+    const now = new Date(); now.setHours(0,0,0,0);
+    return nextPeriodStart <= now;
+  };
+
   const totalPaid = payments.filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
-  const totalPending = payments.filter(p=>!p.paid).reduce((s,p)=>s+p.amount,0);
+
+  // Build label for each payment based on its position
+  const getLabel = (idx) => {
+    const start = new Date(student.startDate || today());
+    const pStart = new Date(start);
+    pStart.setDate(pStart.getDate() + idx * 30);
+    const pEnd = new Date(pStart);
+    pEnd.setDate(pEnd.getDate() + 29);
+    return `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -142,56 +126,81 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
         </div>
+
         <div className="overflow-y-auto flex-1 p-5 space-y-2">
-          {periods.length === 0 ? (
-            <p className="text-center text-slate-500 text-sm py-8">Sin períodos activos</p>
-          ) : periods.map(({key, label, isFirst, defaultAmount}) => {
-            const p = findPayment(key);
-            const paid = p?.paid || false;
-            const amt = p?.amount ?? defaultAmount;
+          {payments.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-slate-500 text-sm">Sin pagos registrados todavía</p>
+              <p className="text-xs text-slate-600 mt-1">El pago se registra al marcar ✓ Pagado en la tabla</p>
+            </div>
+          ) : payments.map((p, idx) => {
+            const label = getLabel(idx);
+            const isFirst = idx === 0;
             return (
-              <div key={key} className={`flex items-center justify-between p-3 rounded-xl border ${paid ? 'bg-jade-500/5 border-jade-500/20' : 'bg-obsidian-700 border-white/5'}`}>
+              <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${p.paid ? 'bg-jade-500/5 border-jade-500/20' : 'bg-obsidian-700 border-white/5'}`}>
                 <div>
-                  <div className="text-xs font-mono text-slate-300">{label}</div>
-                  <div className={`text-xs font-mono mt-0.5 font-bold ${paid ? 'text-jade-400' : 'text-amber-400'}`}>
-                    {money(amt)} {isFirst ? '· Primer mes' : '· Renovación'}
+                  <div className="text-xs font-mono text-slate-400">{label}</div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-sm font-mono font-bold ${p.paid ? 'text-jade-400' : 'text-amber-400'}`}>{money(p.amount)}</span>
+                    <span className="text-xs text-slate-600">{isFirst ? '· Primer mes' : `· Mes ${idx+1}`}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <PayBadge paid={paid}/>
-                  <button onClick={()=>setEditingPay({key, amt, paid})}
+                  <PayBadge paid={p.paid}/>
+                  <button onClick={()=>setEditingPay({idx, amount:p.amount, paid:p.paid})}
                     className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors">
                     <Pencil className="w-3.5 h-3.5"/>
                   </button>
-                  {p && <button onClick={()=>deletePay(key)} disabled={loading}
+                  <button onClick={()=>deletePay(idx)} disabled={loading}
                     className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                     <Trash2 className="w-3.5 h-3.5"/>
-                  </button>}
-                  <button onClick={()=>togglePay(key, defaultAmount)} disabled={loading}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-display font-semibold transition-all ${paid ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-jade-500/15 text-jade-400 hover:bg-jade-500/25'}`}>
-                    {paid ? 'Revertir' : '✓ Pagar'}
+                  </button>
+                  <button onClick={()=>togglePay(idx)} disabled={loading}
+                    className={`px-2 py-1 rounded-lg text-xs font-display font-semibold transition-all ${p.paid ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-jade-500/15 text-jade-400 hover:bg-jade-500/25'}`}>
+                    {p.paid ? 'Revertir' : '✓'}
                   </button>
                 </div>
               </div>
             );
           })}
         </div>
+
         <div className="p-4 border-t border-white/5">
-          <div className="flex justify-between text-xs font-mono mb-3">
-            <span className="text-slate-500">Pagado: <span className="text-jade-400">{money(totalPaid)}</span></span>
-            <span className="text-slate-500">Pendiente: <span className="text-amber-400">{money(totalPending)}</span></span>
-            <span className="text-slate-500">{periods.length} período{periods.length!==1?'s':''}</span>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-mono text-slate-500">
+              Total pagado: <span className="text-jade-400">{money(totalPaid)}</span>
+            </span>
+            <span className="text-xs font-mono text-slate-600">{payments.length} período{payments.length!==1?'s':''}</span>
           </div>
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-between">
             <button onClick={onClose} className="btn-ghost">Cerrar</button>
+            {canAddPeriod() ? (
+              <button onClick={addPeriod} disabled={loading} className="btn-primary flex items-center gap-2 text-sm">
+                <Plus className="w-4 h-4"/> Agregar mes ($60.000)
+              </button>
+            ) : payments.length > 0 ? (
+              <div className="text-xs text-slate-600 font-mono self-center">
+                Próximo mes disponible en {(() => {
+                  const start = new Date(student.startDate || today());
+                  const next = new Date(start);
+                  next.setDate(next.getDate() + payments.length * 30);
+                  const diff = Math.ceil((next - new Date()) / 86400000);
+                  return diff > 0 ? `${diff} días` : 'hoy';
+                })()}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
-      {editingPay && (
+      {editingPay !== null && (
         <EditPayModal
-          payment={{amount: editingPay.amt, paid: editingPay.paid}}
+          payment={{amount: editingPay.amount, paid: editingPay.paid}}
           onClose={()=>setEditingPay(null)}
-          onSave={(form)=>handleEditSave(editingPay.key, form)}
+          onSave={async(form)=>{
+            const newP = payments.map((p,i)=>i===editingPay.idx?{...p,...form}:p);
+            await savePayments(newP);
+            setEditingPay(null);
+          }}
         />
       )}
     </div>
