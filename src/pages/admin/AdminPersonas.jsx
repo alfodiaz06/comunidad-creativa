@@ -60,10 +60,9 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   const [payments, setPayments] = useState([...(student.payments||[])]);
   const [loading, setLoading] = useState(false);
   const [editingPay, setEditingPay] = useState(null);
-  const m = month();
 
-  // Only show existing payments — no auto-generation of periods
-  const allPeriods = () => {
+  // Generate periods: one per 30-day cycle from startDate, only past/current ones
+  const getPeriods = () => {
     const start = new Date(student.startDate || today());
     start.setHours(0,0,0,0);
     const now = new Date();
@@ -74,60 +73,64 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
       const pStart = new Date(start);
       pStart.setDate(pStart.getDate() + i * 30);
       pStart.setHours(0,0,0,0);
-      if(pStart > now) break; // only show periods that have started
+      if(pStart > now) break;
       const pEnd = new Date(pStart);
       pEnd.setDate(pEnd.getDate() + 29);
-      const key = pStart.toISOString().slice(0,10);
-      const label = `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`;
-      periods.push({ key, label, isFirst: i === 0, pStart, pEnd });
+      periods.push({
+        key: pStart.toISOString().slice(0,10),
+        label: `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`,
+        isFirst: i === 0,
+        defaultAmount: i === 0 ? 80000 : 60000,
+      });
       i++;
     }
     return periods;
   };
 
+  const findPayment = (key) => {
+    return payments.find(p => p.month === key)
+      || payments.find(p => p.month === key.slice(0,7));
+  };
+
   const savePayments = async (newP) => {
     setPayments(newP);
     setLoading(true);
-    try { await saveStudent({...student,payments:newP}); onUpdate(); }
+    try { await saveStudent({...student, payments: newP}); onUpdate(); }
     finally { setLoading(false); }
   };
 
-  const toggleMonth = async (mk, isFirstPeriod) => {
-    const legacyMk = mk.slice(0,7);
-    const existingIdx = payments.findIndex(p=>p.month===mk || p.month===legacyMk);
-    const correctAmount = isFirstPeriod ? 80000 : 60000;
+  const togglePay = async (key, defaultAmount) => {
+    const existing = findPayment(key);
     let newP;
-    if(existingIdx>=0){ 
-      newP=payments.map((p,i)=>i===existingIdx?{...p,paid:!p.paid}:p); 
-    } else { 
-      newP=[...payments,{month:mk,paid:true,amount:correctAmount}]; 
+    if(existing) {
+      newP = payments.map(p => (p.month===key || p.month===key.slice(0,7)) ? {...p, paid:!p.paid} : p);
+    } else {
+      newP = [...payments, {month: key, paid: true, amount: defaultAmount}];
     }
     await savePayments(newP);
   };
 
-  const handleEditPay = async (mk, form) => {
-    const existing=payments.find(p=>p.month===mk);
+  const deletePay = async (key) => {
+    if(!confirm('¿Eliminar este pago?')) return;
+    const newP = payments.filter(p => p.month !== key && p.month !== key.slice(0,7));
+    await savePayments(newP);
+  };
+
+  const handleEditSave = async (key, form) => {
+    const existing = findPayment(key);
     let newP;
-    if(existing){ newP=payments.map(p=>p.month===mk?{...p,...form}:p); }
-    else{ newP=[...payments,{month:mk,...form}]; }
+    if(existing) {
+      newP = payments.map(p => (p.month===key || p.month===key.slice(0,7)) ? {...p, ...form, month:key} : p);
+    } else {
+      newP = [...payments, {month: key, ...form}];
+    }
     await savePayments(newP);
     setEditingPay(null);
   };
 
-  const deletePayment = async (mk) => {
-    if(!confirm('¿Eliminar este pago?')) return;
-    const newP = payments.filter(p=>p.month!==mk);
-    await savePayments(newP);
-  };
-
-  const addNextMonth = async () => {
-    const nextKey = today(); // use today as key for new period
-    await savePayments([...payments,{month:nextKey,paid:false,amount:60000}]);
-  };
-
-  const totalPaid=payments.filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
-  const totalPending=payments.filter(p=>!p.paid).reduce((s,p)=>s+p.amount,0);
-  const periods=allPeriods();
+  const periods = getPeriods();
+  const totalPaid = payments.filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
+  const totalPending = payments.filter(p=>!p.paid).reduce((s,p)=>s+p.amount,0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -141,36 +144,32 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
         </div>
         <div className="overflow-y-auto flex-1 p-5 space-y-2">
           {periods.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-sm">
-              <p>Sin períodos activos</p>
-            </div>
-          ) : periods.map(({key, label, isFirst})=>{
-            // Find payment for this period (exact key or legacy calendar month)
-            const legacyKey = key.slice(0,7);
-            const p = payments.find(x=>x.month===key) || payments.find(x=>x.month===legacyKey);
+            <p className="text-center text-slate-500 text-sm py-8">Sin períodos activos</p>
+          ) : periods.map(({key, label, isFirst, defaultAmount}) => {
+            const p = findPayment(key);
             const paid = p?.paid || false;
-            // First period always $80.000, subsequent $60.000
-            const defaultAmt = isFirst ? 80000 : 60000;
-            const amt = p?.amount || defaultAmt;
+            const amt = p?.amount ?? defaultAmount;
             return (
-              <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
+              <div key={key} className={`flex items-center justify-between p-3 rounded-xl border ${paid ? 'bg-jade-500/5 border-jade-500/20' : 'bg-obsidian-700 border-white/5'}`}>
                 <div>
-                  <div className="text-xs font-mono text-slate-200">{label}{isFirst?' · Primer período':''}</div>
-                  <div className="text-xs font-mono text-jade-400 mt-0.5">{money(amt)}</div>
+                  <div className="text-xs font-mono text-slate-300">{label}</div>
+                  <div className={`text-xs font-mono mt-0.5 font-bold ${paid ? 'text-jade-400' : 'text-amber-400'}`}>
+                    {money(amt)} {isFirst ? '· Primer mes' : '· Renovación'}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <PayBadge paid={paid}/>
-                  <button onClick={()=>setEditingPay({mk:key, p:{amount:amt,paid:paid||false}})}
-                    className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors" title="Editar">
+                  <button onClick={()=>setEditingPay({key, amt, paid})}
+                    className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors">
                     <Pencil className="w-3.5 h-3.5"/>
                   </button>
-                  {p && <button onClick={()=>deletePayment(p.month)} disabled={loading}
-                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar">
+                  {p && <button onClick={()=>deletePay(key)} disabled={loading}
+                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                     <Trash2 className="w-3.5 h-3.5"/>
                   </button>}
-                  <button onClick={()=>toggleMonth(key, isFirst)} disabled={loading}
-                    className="px-2.5 py-1 rounded-lg text-xs font-display font-semibold bg-white/5 text-slate-400 hover:bg-white/10 transition-all">
-                    {paid?'Revertir':'✓'}
+                  <button onClick={()=>togglePay(key, defaultAmount)} disabled={loading}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-display font-semibold transition-all ${paid ? 'bg-white/5 text-slate-400 hover:bg-white/10' : 'bg-jade-500/15 text-jade-400 hover:bg-jade-500/25'}`}>
+                    {paid ? 'Revertir' : '✓ Pagar'}
                   </button>
                 </div>
               </div>
@@ -181,26 +180,24 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
           <div className="flex justify-between text-xs font-mono mb-3">
             <span className="text-slate-500">Pagado: <span className="text-jade-400">{money(totalPaid)}</span></span>
             <span className="text-slate-500">Pendiente: <span className="text-amber-400">{money(totalPending)}</span></span>
-            <span className="text-slate-500">{payments.length} pago{payments.length!==1?'s':''}</span>
+            <span className="text-slate-500">{periods.length} período{periods.length!==1?'s':''}</span>
           </div>
           <div className="flex gap-2 justify-end">
             <button onClick={onClose} className="btn-ghost">Cerrar</button>
-            <button onClick={addNextMonth} className="btn-primary flex items-center gap-2 text-sm">
-              <Plus className="w-4 h-4"/> Agregar mes
-            </button>
           </div>
         </div>
       </div>
       {editingPay && (
         <EditPayModal
-          payment={editingPay.p}
+          payment={{amount: editingPay.amt, paid: editingPay.paid}}
           onClose={()=>setEditingPay(null)}
-          onSave={(form)=>handleEditPay(editingPay.mk, form)}
+          onSave={(form)=>handleEditSave(editingPay.key, form)}
         />
       )}
     </div>
   );
 }
+
 
 // ── Person Modal
 function PersonModal({ person, accounts, courses, onClose, onSave }) {
@@ -548,23 +545,22 @@ export default function AdminPersonas() {
   };
 
   const handleTogglePay = async (person) => {
-    const st=students.find(s=>s.id===person.studentId); if(!st) return;
-    const pays=[...(st.payments||[])];
-    // Period key = startDate (first period) or expiresAt of previous period
-    const periodKey = st.startDate || today();
-    // Find by startDate, expiresAt, or any existing key
-    let idx = pays.findIndex(p=>p.month===periodKey);
-    if(idx<0) idx = pays.findIndex(p=>p.month===person.expiresAt);
-    if(idx<0) idx = pays.findIndex(p=>p.month===st.expiresAt);
-    // First period = $80.000, subsequent = $60.000
-    const isFirstPeriod = pays.length === 0 || idx === 0;
-    const correctAmount = isFirstPeriod ? 80000 : 60000;
-    if(idx>=0){
-      pays[idx]={...pays[idx],paid:!pays[idx].paid};
+    const st = students.find(s => s.id === person.studentId);
+    if (!st) return;
+    const pays = [...(st.payments || [])];
+    // Key = startDate of current period
+    const key = st.startDate || today();
+    const idx = pays.findIndex(p => p.month === key || p.month === key.slice(0,7));
+    // First payment ever = $80.000, renewals = $60.000
+    const isFirst = pays.length === 0;
+    const amount = isFirst ? 80000 : 60000;
+    if (idx >= 0) {
+      pays[idx] = {...pays[idx], paid: !pays[idx].paid};
     } else {
-      pays.push({month:periodKey,paid:true,amount:correctAmount});
+      pays.push({month: key, paid: true, amount});
     }
-    await saveStudent({...st,payments:pays}); await load();
+    await saveStudent({...st, payments: pays});
+    await load();
   };
 
   const handleDelete = async (person) => {
