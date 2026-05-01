@@ -62,13 +62,26 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   const [editingPay, setEditingPay] = useState(null);
   const m = month();
 
-  const allMonths = () => {
-    const months=[];
-    const start=new Date(student.startDate||today());
-    const now=new Date();
-    let cur=new Date(start.getFullYear(),start.getMonth(),1);
-    while(cur<=now){ months.push(cur.toISOString().slice(0,7)); cur.setMonth(cur.getMonth()+1); }
-    return months;
+  // Generate periods based on 30-day cycles from startDate
+  const allPeriods = () => {
+    const periods = [];
+    const start = new Date(student.startDate || today());
+    const now = new Date();
+    let periodStart = new Date(start);
+    let periodEnd = new Date(start);
+    periodEnd.setDate(periodEnd.getDate() + 30);
+    // Generate all complete and current periods
+    while(periodStart <= now) {
+      periods.push({
+        key: periodEnd.toISOString().slice(0,10), // use end date as key
+        label: `${periodStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})} → ${periodEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`,
+        isFirst: periods.length === 0,
+      });
+      periodStart = new Date(periodEnd);
+      periodEnd = new Date(periodStart);
+      periodEnd.setDate(periodEnd.getDate() + 30);
+    }
+    return periods;
   };
 
   const savePayments = async (newP) => {
@@ -102,16 +115,19 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   };
 
   const addNextMonth = async () => {
-    const months=allMonths();
-    const last=months[months.length-1];
-    const [y,mo]=last.split('-');
-    const next=new Date(parseInt(y),parseInt(mo),1).toISOString().slice(0,7);
-    await savePayments([...payments,{month:next,paid:false,amount:60000}]);
+    const periods=allPeriods();
+    const lastKey = periods[periods.length-1]?.key;
+    if(!lastKey) return;
+    const lastDate = new Date(lastKey);
+    const nextEnd = new Date(lastDate);
+    nextEnd.setDate(nextEnd.getDate()+30);
+    const nextKey = nextEnd.toISOString().slice(0,10);
+    await savePayments([...payments,{month:nextKey,paid:false,amount:60000}]);
   };
 
   const totalPaid=payments.filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
   const totalPending=payments.filter(p=>!p.paid).reduce((s,p)=>s+p.amount,0);
-  const months=allMonths();
+  const periods=allPeriods();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -124,29 +140,28 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
           <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
         </div>
         <div className="overflow-y-auto flex-1 p-5 space-y-2">
-          {months.map((mk,idx)=>{
-            const p=payments.find(x=>x.month===mk);
+          {allPeriods().map(({key, label, isFirst})=>{
+            const p=payments.find(x=>x.month===key)
+              || (isFirst ? payments.find(x=>x.month===student.startDate?.slice(0,7)) : null);
             const paid=p?.paid;
-            const amt=p?.amount||(idx===0?80000:60000);
-            const [y,mo]=mk.split('-');
-            const label=new Date(parseInt(y),parseInt(mo)-1).toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+            const amt=p?.amount||(isFirst?80000:60000);
             return (
-              <div key={mk} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
+              <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
                 <div>
-                  <div className="text-sm font-display text-slate-200 capitalize">{label}{idx===0?' (inicio)':''}</div>
-                  <div className="text-xs font-mono text-jade-400">{money(amt)}</div>
+                  <div className="text-xs font-mono text-slate-200">{label}{isFirst?' · Primer período':''}</div>
+                  <div className="text-xs font-mono text-jade-400 mt-0.5">{money(amt)}</div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <PayBadge paid={paid}/>
-                  <button onClick={()=>setEditingPay({mk, p:{amount:amt,paid:paid||false}})}
+                  <button onClick={()=>setEditingPay({mk:key, p:{amount:amt,paid:paid||false}})}
                     className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors" title="Editar pago">
                     <Pencil className="w-3.5 h-3.5"/>
                   </button>
-                  <button onClick={()=>deletePayment(mk)} disabled={loading}
+                  <button onClick={()=>deletePayment(key)} disabled={loading}
                     className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar pago">
                     <Trash2 className="w-3.5 h-3.5"/>
                   </button>
-                  <button onClick={()=>toggleMonth(mk)} disabled={loading}
+                  <button onClick={()=>toggleMonth(key)} disabled={loading}
                     className="px-2.5 py-1 rounded-lg text-xs font-display font-semibold bg-white/5 text-slate-400 hover:bg-white/10 transition-all">
                     {paid?'Revertir':'✓'}
                   </button>
@@ -159,7 +174,7 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
           <div className="flex justify-between text-xs font-mono mb-3">
             <span className="text-slate-500">Pagado: <span className="text-jade-400">{money(totalPaid)}</span></span>
             <span className="text-slate-500">Pendiente: <span className="text-amber-400">{money(totalPending)}</span></span>
-            <span className="text-slate-500">{months.length} mes{months.length!==1?'es':''}</span>
+            <span className="text-slate-500">{periods.length} período{periods.length!==1?'s':''}</span>
           </div>
           <div className="flex gap-2 justify-end">
             <button onClick={onClose} className="btn-ghost">Cerrar</button>
