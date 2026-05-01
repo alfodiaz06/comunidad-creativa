@@ -402,11 +402,15 @@ export default function AdminPersonas() {
       : daysLeft===0 ? 'Vence hoy'
       : `Vence en ${daysLeft} día${daysLeft!==1?'s':''}`;
 
-    // Payment: find payment for the CURRENT 30-day period
-    // Period key = the expiresAt date (each renewal creates a new period)
-    const periodKey = expiresAt; // use expiresAt as the period identifier
-    const pay = payments.find(p => p.month === periodKey) 
-      || payments.find(p => p.month === m); // fallback to calendar month
+    // Find payment for current active cycle
+    // The current cycle started on the previous expiresAt (or startDate) and ends on expiresAt
+    // Look for the LAST payment in the payments array (most recent period)
+    const sortedPayments = [...payments].sort((a,b) => {
+      const da = new Date(a.month?.length === 7 ? a.month+'-01' : a.month||0);
+      const db = new Date(b.month?.length === 7 ? b.month+'-01' : b.month||0);
+      return db - da;
+    });
+    const pay = sortedPayments[0]; // most recent payment = current period
     const paid = pay?.paid || false;
 
     return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments, paid, payAmount:pay?.amount||((payments.length>1?60000:80000)), totalPaid:total, role:st.role||'student', disabled:st.disabled||isExpired, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'', addedBy:st.addedBy||'' };
@@ -514,9 +518,13 @@ export default function AdminPersonas() {
   const handleTogglePay = async (person) => {
     const st=students.find(s=>s.id===person.studentId); if(!st) return;
     const pays=[...(st.payments||[])];
-    const idx=pays.findIndex(p=>p.month===m);
+    // Use expiresAt as the period key for 30-day cycles
+    const periodKey = person.expiresAt || st.expiresAt || m;
+    // Try to find by periodKey first, then by calendar month (legacy)
+    let idx = pays.findIndex(p=>p.month===periodKey);
+    if(idx<0) idx = pays.findIndex(p=>p.month===m);
     if(idx>=0){pays[idx]={...pays[idx],paid:!pays[idx].paid};}
-    else{pays.push({month:m,paid:true,amount:pays.length===0?80000:60000});}
+    else{pays.push({month:periodKey,paid:true,amount:pays.length===0?80000:60000});}
     await saveStudent({...st,payments:pays}); await load();
   };
 
