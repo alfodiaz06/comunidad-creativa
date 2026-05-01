@@ -92,15 +92,15 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
     finally { setLoading(false); }
   };
 
-  const toggleMonth = async (mk) => {
-    // Also check legacy month key
+  const toggleMonth = async (mk, isFirstPeriod) => {
     const legacyMk = mk.slice(0,7);
     const existingIdx = payments.findIndex(p=>p.month===mk || p.month===legacyMk);
+    const correctAmount = isFirstPeriod ? 80000 : 60000;
     let newP;
     if(existingIdx>=0){ 
       newP=payments.map((p,i)=>i===existingIdx?{...p,paid:!p.paid}:p); 
     } else { 
-      newP=[...payments,{month:mk,paid:true,amount:payments.length===0?80000:60000}]; 
+      newP=[...payments,{month:mk,paid:true,amount:correctAmount}]; 
     }
     await savePayments(newP);
   };
@@ -149,7 +149,9 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
             const legacyKey = key.slice(0,7);
             const p = payments.find(x=>x.month===key) || payments.find(x=>x.month===legacyKey);
             const paid = p?.paid || false;
-            const amt = p?.amount || (isFirst ? 80000 : 60000);
+            // First period always $80.000, subsequent $60.000
+            const defaultAmt = isFirst ? 80000 : 60000;
+            const amt = p?.amount || defaultAmt;
             return (
               <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
                 <div>
@@ -166,7 +168,7 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
                     className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar">
                     <Trash2 className="w-3.5 h-3.5"/>
                   </button>}
-                  <button onClick={()=>toggleMonth(key)} disabled={loading}
+                  <button onClick={()=>toggleMonth(key, isFirst)} disabled={loading}
                     className="px-2.5 py-1 rounded-lg text-xs font-display font-semibold bg-white/5 text-slate-400 hover:bg-white/10 transition-all">
                     {paid?'Revertir':'✓'}
                   </button>
