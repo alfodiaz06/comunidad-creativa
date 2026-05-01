@@ -388,15 +388,28 @@ export default function AdminPersonas() {
   const active = students.filter(s=>!s.deletedAt);
   const persons = active.map(st=>{
     const acc=accounts.find(a=>a.id===st.accountId);
-    const pay=(st.payments||[]).find(p=>p.month===m);
-    const total=(st.payments||[]).filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
+    const payments = st.payments||[];
+    const total=payments.filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
+
+    // Expiry based on startDate + 30 days cycles
     const expiresAt = st.expiresAt || add30(st.startDate || today());
     const now = new Date(); now.setHours(0,0,0,0);
     const exp = new Date(expiresAt); exp.setHours(0,0,0,0);
     const daysLeft = Math.round((exp - now) / 86400000);
     const isExpired = daysLeft < 0;
-    const expiresLabel = isExpired ? `Venció hace ${Math.abs(daysLeft)} día${Math.abs(daysLeft)!==1?'s':''}` : daysLeft===0 ? 'Vence hoy' : `Vence en ${daysLeft} día${daysLeft!==1?'s':''}`;
-    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments:st.payments||[], paid:pay?.paid||false, payAmount:pay?.amount||((st.payments||[]).length>1?60000:80000), totalPaid:total, role:st.role||'student', disabled:st.disabled||isExpired, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'', addedBy:st.addedBy||'' };
+    const expiresLabel = isExpired
+      ? `Venció hace ${Math.abs(daysLeft)} día${Math.abs(daysLeft)!==1?'s':''}`
+      : daysLeft===0 ? 'Vence hoy'
+      : `Vence en ${daysLeft} día${daysLeft!==1?'s':''}`;
+
+    // Payment: find payment for the CURRENT 30-day period
+    // Period key = the expiresAt date (each renewal creates a new period)
+    const periodKey = expiresAt; // use expiresAt as the period identifier
+    const pay = payments.find(p => p.month === periodKey) 
+      || payments.find(p => p.month === m); // fallback to calendar month
+    const paid = pay?.paid || false;
+
+    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments, paid, payAmount:pay?.amount||((payments.length>1?60000:80000)), totalPaid:total, role:st.role||'student', disabled:st.disabled||isExpired, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'', addedBy:st.addedBy||'' };
   });
 
   const filtered = persons.filter(p=>{
@@ -465,17 +478,35 @@ export default function AdminPersonas() {
         } catch(e) { console.warn('Notify:', e.message); }
       }
     } else {
-      let uid_firebase=null;
-      if(form.email){
-        try{
-          const result=await apiCreateUser({email:form.email,password,displayName:form.displayName,role:form.role});
-          uid_firebase=result.uid;
-          if(uid_firebase&&courseIds.length>0) await Promise.all(courseIds.map(id=>assignCourseToUser(uid_firebase,id)));
-        }catch(e){ console.warn('Auth:',e.message); }
+      let uid_firebase = null;
+      if (form.email) {
+        try {
+          const result = await apiCreateUser({email:form.email, password, displayName:form.displayName, role:form.role});
+          uid_firebase = result.uid;
+          console.log('Created user uid:', uid_firebase);
+        } catch(e) { console.error('Auth creation failed:', e.message); }
       }
-      const newSt={id:uid(),name:form.displayName,whatsapp:form.whatsapp,email:form.email,startDate:form.startDate,expiresAt:form.expiresAt,accountId:form.accountId||null,payments:[],deletedAt:null,role:form.role,disabled:form.disabled,uid:uid_firebase,courseIds,accessPassword:password,addedBy:profile?.displayName||profile?.email||'Admin',addedAt:new Date().toISOString()};
+
+      // Save student record FIRST (with uid and courseIds)
+      const newSt = {
+        id: uid(), name:form.displayName, whatsapp:form.whatsapp, email:form.email,
+        startDate:form.startDate, expiresAt:form.expiresAt, accountId:form.accountId||null,
+        payments:[], deletedAt:null, role:form.role, disabled:form.disabled,
+        uid:uid_firebase, courseIds, accessPassword:password,
+        addedBy:profile?.displayName||profile?.email||'Admin', addedAt:new Date().toISOString()
+      };
       await saveStudent(newSt);
-      if(form.accountId) await assignStudentToAccount(accounts,form.accountId,newSt.id);
+
+      // Assign to account slot
+      if (form.accountId) await assignStudentToAccount(accounts, form.accountId, newSt.id);
+
+      // Assign courses to Firestore AFTER student is saved
+      if (uid_firebase && courseIds.length > 0) {
+        try {
+          await Promise.all(courseIds.map(id => assignCourseToUser(uid_firebase, id)));
+          console.log('Courses assigned:', courseIds);
+        } catch(e) { console.error('Course assignment failed:', e.message); }
+      }
     }
     await load();
   };
