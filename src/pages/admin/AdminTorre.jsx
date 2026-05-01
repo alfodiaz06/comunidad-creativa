@@ -85,7 +85,11 @@ export default function AdminTorre() {
     return sum+(p?.amount||(pays.length>1?60000:80000));
   },0);
   const totalAdsAll = ads.reduce((s,a)=>s+a.amount,0);
-  const totalAdsMonth = ads.filter(a=>a.date?.slice(0,7)===m).reduce((s,a)=>s+a.amount,0);
+  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+  const totalAdsMonth = ads.filter(a=>{
+    if(!a.date) return false;
+    return new Date(a.date) >= thirtyDaysAgo;
+  }).reduce((s,a)=>s+a.amount,0);
   const totalHistoric = active.reduce((sum,st)=>sum+(st.payments||[]).filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
   const netMonth = mPaid - totalAdsMonth;
   const netTotal = totalHistoric - totalAdsAll;
@@ -147,10 +151,10 @@ export default function AdminTorre() {
             {[
               {label:'Activos', val:active.length, color:'text-jade-400'},
               {label:'Cuentas', val:accounts.filter(a=>statusAccount(a.expiresAt)!=='expired').length, color:'text-brand-400'},
-              {label:`Ingresos ${m}`, val:money(mPaid), color:'text-jade-400'},
-              {label:`Pendiente ${m}`, val:money(mPending), color:'text-amber-400'},
-              {label:`Publicidad ${m}`, val:money(totalAdsMonth), color:'text-red-400'},
-              {label:`Ganancia neta ${m}`, val:money(netMonth), color:'text-jade-400'},
+              {label:"Ingresos actuales", val:money(mPaid), color:'text-jade-400'},
+              {label:"Pendiente actual", val:money(mPending), color:'text-amber-400'},
+              {label:"Publicidad actual", val:money(totalAdsMonth), color:'text-red-400'},
+              {label:"Ganancia neta actual", val:money(netMonth), color:'text-jade-400'},
               {label:'Total histórico', val:money(totalHistoric), color:'text-jade-400'},
               {label:'Ganancia neta total', val:money(netTotal), color:'text-jade-400'},
             ].map(({label,val,color})=>(
@@ -275,7 +279,7 @@ export default function AdminTorre() {
           {/* Seguimiento mensual */}
           <div className="card overflow-hidden p-0">
             <div className="p-4 border-b border-white/5 flex flex-wrap gap-2 items-center justify-between">
-              <h3 className="font-display font-semibold text-white text-sm">Seguimiento {m}</h3>
+              <h3 className="font-display font-semibold text-white text-sm">Seguimiento actual</h3>
               <div className="flex gap-2">
                 {['all','paid','pending'].map(f=>(
                   <button key={f} onClick={()=>setFilter(f)}
@@ -297,13 +301,13 @@ export default function AdminTorre() {
                   {filteredStudents.map(st=>{
                     const acc=accounts.find(a=>a.id===st.accountId);
                     const pay=getCurrentPay(st);
-                    const amt=pay?.amount||((st.payments||[]).length<=1?80000:60000);
+                    const amt=pay?.amount||((st.payments||[]).length>1?60000:80000);
                     return (
                       <tr key={st.id} className="hover:bg-white/2 transition-colors">
                         <td className="px-4 py-3 font-display text-sm text-slate-200">{st.name}</td>
                         <td className="px-4 py-3 font-mono text-sm text-slate-300">{st.whatsapp}</td>
                         <td className="px-4 py-3 font-mono text-xs text-slate-400 max-w-[130px] truncate">{acc?.email||'—'}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-500">{m}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-500">Actual</td>
                         <td className="px-4 py-3 font-mono text-sm text-jade-400">{money(amt)}</td>
                         <td className="px-4 py-3">
                           {pay?.paid

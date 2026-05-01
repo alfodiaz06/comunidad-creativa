@@ -28,13 +28,23 @@ export default function AdminDashboard() {
           getAllUsers(), getAllCourses(), getAccounts(), getStudents(), getAds()
         ]);
         const active = students.filter(s => !s.deletedAt);
+        // Get most recent payment for each student (current 30-day period)
+        const getCurrentPay = (st) => {
+          const pays = st.payments || [];
+          if (!pays.length) return null;
+          return [...pays].sort((a, b) => {
+            const da = new Date(a.month?.length === 7 ? a.month + '-01' : a.month || 0);
+            const db = new Date(b.month?.length === 7 ? b.month + '-01' : b.month || 0);
+            return db - da;
+          })[0];
+        };
         const mPaid = active.reduce((sum, st) => {
-          const p = (st.payments || []).find(x => x.month === m && x.paid);
-          return sum + (p ? p.amount : 0);
+          const p = getCurrentPay(st);
+          return sum + (p?.paid ? p.amount : 0);
         }, 0);
         const mPending = active.reduce((sum, st) => {
           const pays = st.payments || [];
-          const p = pays.find(x => x.month === m);
+          const p = getCurrentPay(st);
           if (p?.paid) return sum;
           return sum + (p?.amount || (pays.length > 1 ? 60000 : 80000));
         }, 0);
@@ -59,7 +69,12 @@ export default function AdminDashboard() {
   const { users, courses, accounts, active, mPaid, mPending, totalHistoric, totalAdsMonth } = data;
   const netMonth = mPaid - totalAdsMonth;
   const activeAccounts = accounts.filter(a => statusAccount(a.expiresAt) !== 'expired');
-  const pendingStudents = active.filter(s => !(s.payments || []).find(p => p.month === m && p.paid));
+  const getCurrentPaySimple = (st) => {
+    const pays = st.payments || [];
+    if (!pays.length) return null;
+    return [...pays].sort((a,b) => new Date(b.month?.length===7?b.month+'-01':b.month||0) - new Date(a.month?.length===7?a.month+'-01':a.month||0))[0];
+  };
+  const pendingStudents = active.filter(s => !getCurrentPaySimple(s)?.paid);
 
   return (
     <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
@@ -76,9 +91,9 @@ export default function AdminDashboard() {
             <KpiCard label="Personas registradas" value={active.length} sub={`${users.length} con acceso`} color="brand" />
             <KpiCard label="Cuentas activas" value={activeAccounts.length} sub={`${accounts.filter(a=>statusAccount(a.expiresAt)==='expired').length} vencidas`} color="jade" />
             <KpiCard label="Cursos" value={courses.length} color="slate" />
-            <KpiCard label={`Ingresos ${m}`} value={money(mPaid)} sub="este mes" color="jade" />
-            <KpiCard label={`Pendiente ${m}`} value={money(mPending)} sub={`${pendingStudents.length} personas`} color="amber" />
-            <KpiCard label={`Ganancia neta ${m}`} value={money(netMonth)} sub="ingresos - publicidad" color="jade" />
+            <KpiCard label="Ingresos actuales" value={money(mPaid)} sub="período actual" color="jade" />
+            <KpiCard label="Pendiente actual" value={money(mPending)} sub={`${pendingStudents.length} personas`} color="amber" />
+            <KpiCard label="Ganancia neta actual" value={money(netMonth)} sub="ingresos - publicidad" color="jade" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
@@ -110,7 +125,7 @@ export default function AdminDashboard() {
             <div className="card lg:col-span-2">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display font-semibold text-white text-sm flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-400" /> Pendientes de pago — {m}
+                  <AlertCircle className="w-4 h-4 text-amber-400" /> Pendientes de pago
                 </h2>
                 <Link to="/admin/torre" className="text-xs text-brand-400 hover:text-brand-300 transition-colors">Ver todo →</Link>
               </div>
@@ -123,7 +138,7 @@ export default function AdminDashboard() {
                   {pendingStudents.slice(0, 8).map(st => {
                     const acc = accounts.find(a => a.id === st.accountId);
                     const pays = st.payments || [];
-                    const amt = pays.find(p => p.month === m)?.amount || (pays.length > 1 ? 60000 : 80000);
+                    const currentPay = getCurrentPaySimple(st); const amt = currentPay?.amount || (pays.length > 1 ? 60000 : 80000);
                     return (
                       <div key={st.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
                         <div className="w-7 h-7 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-xs flex-shrink-0">

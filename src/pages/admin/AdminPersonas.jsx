@@ -62,26 +62,15 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   const [editingPay, setEditingPay] = useState(null);
   const m = month();
 
-  // Generate ONE period per 30-day cycle from startDate
-  // Period: startDate → startDate+30days, then startDate+30 → startDate+60, etc.
+  // Only show existing payments — no auto-generation of periods
   const allPeriods = () => {
-    const periods = [];
-    const start = new Date(student.startDate || today());
-    const now = new Date();
-    let i = 0;
-    while(true) {
-      const pStart = new Date(start);
-      pStart.setDate(pStart.getDate() + i * 30);
-      const pEnd = new Date(pStart);
-      pEnd.setDate(pEnd.getDate() + 29); // 30 days inclusive: day 1 to day 30
-      const key = pStart.toISOString().slice(0,10); // key = start of period
-      const label = `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`;
-      periods.push({ key, label, isFirst: i === 0, pStart, pEnd });
-      if(pStart > now) break; // stop after current period
-      i++;
-      if(i > 24) break; // max 24 periods (2 years)
-    }
-    return periods;
+    return payments.map((p, idx) => ({
+      key: p.month,
+      label: p.month,
+      isFirst: idx === 0,
+      pStart: null,
+      pEnd: null,
+    }));
   };
 
   const savePayments = async (newP) => {
@@ -115,14 +104,8 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   };
 
   const addNextMonth = async () => {
-    const periods=allPeriods();
-    const last = periods[periods.length-1];
-    if(!last) return;
-    const nextStart = new Date(last.pStart);
-    nextStart.setDate(nextStart.getDate()+30);
-    const nextKey = nextStart.toISOString().slice(0,10);
-    if(!payments.find(p=>p.month===nextKey))
-      await savePayments([...payments,{month:nextKey,paid:false,amount:60000}]);
+    const nextKey = today(); // use today as key for new period
+    await savePayments([...payments,{month:nextKey,paid:false,amount:60000}]);
   };
 
   const totalPaid=payments.filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
@@ -140,26 +123,35 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
           <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
         </div>
         <div className="overflow-y-auto flex-1 p-5 space-y-2">
-          {allPeriods().map(({key, label, isFirst})=>{
-            // Find payment: by exact key (period start date) or legacy calendar month
-            const legacyKey = key.slice(0,7); // "2026-04" from "2026-04-01"
-            const p = payments.find(x=>x.month===key) || payments.find(x=>x.month===legacyKey);
-            const paid=p?.paid;
-            const amt=p?.amount||(isFirst?80000:60000);
+          {payments.length === 0 ? (
+            <div className="text-center py-8 text-slate-500 text-sm">
+              <p>Sin pagos registrados</p>
+              <p className="text-xs mt-1">Usa el botón "Agregar pago" para registrar el primer pago</p>
+            </div>
+          ) : payments.map((p, idx)=>{
+            const paid = p?.paid;
+            const amt = p?.amount || (idx===0 ? 80000 : 60000);
+            const key = p.month;
+            // Format date nicely
+            const dateLabel = key?.length === 10
+              ? new Date(key+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})
+              : key?.length === 7
+              ? new Date(key+'-01T12:00:00').toLocaleDateString('es-CO',{month:'long',year:'numeric'})
+              : key;
             return (
-              <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
+              <div key={key||idx} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
                 <div>
-                  <div className="text-xs font-mono text-slate-200">{label}{isFirst?' · Primer período':''}</div>
+                  <div className="text-sm font-display text-slate-200 capitalize">{dateLabel}</div>
                   <div className="text-xs font-mono text-jade-400 mt-0.5">{money(amt)}</div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <PayBadge paid={paid}/>
                   <button onClick={()=>setEditingPay({mk:key, p:{amount:amt,paid:paid||false}})}
-                    className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors" title="Editar pago">
+                    className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors" title="Editar">
                     <Pencil className="w-3.5 h-3.5"/>
                   </button>
                   <button onClick={()=>deletePayment(key)} disabled={loading}
-                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar pago">
+                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar">
                     <Trash2 className="w-3.5 h-3.5"/>
                   </button>
                   <button onClick={()=>toggleMonth(key)} disabled={loading}
@@ -175,7 +167,7 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
           <div className="flex justify-between text-xs font-mono mb-3">
             <span className="text-slate-500">Pagado: <span className="text-jade-400">{money(totalPaid)}</span></span>
             <span className="text-slate-500">Pendiente: <span className="text-amber-400">{money(totalPending)}</span></span>
-            <span className="text-slate-500">{periods.length} período{periods.length!==1?'s':''}</span>
+            <span className="text-slate-500">{payments.length} pago{payments.length!==1?'s':''}</span>
           </div>
           <div className="flex gap-2 justify-end">
             <button onClick={onClose} className="btn-ghost">Cerrar</button>
@@ -521,7 +513,7 @@ export default function AdminPersonas() {
       const newSt = {
         id: uid(), name:form.displayName, whatsapp:form.whatsapp, email:form.email,
         startDate:form.startDate, expiresAt:form.expiresAt, accountId:form.accountId||null,
-        payments:[], deletedAt:null, role:form.role, disabled:form.disabled,
+        payments:[{month: form.startDate || today(), paid: false, amount: 80000}], deletedAt:null, role:form.role, disabled:form.disabled,
         uid:uid_firebase, courseIds, accessPassword:password,
         addedBy:profile?.displayName||profile?.email||'Admin', addedAt:new Date().toISOString()
       };
@@ -545,10 +537,10 @@ export default function AdminPersonas() {
     const st=students.find(s=>s.id===person.studentId); if(!st) return;
     const pays=[...(st.payments||[])];
     // Use expiresAt as the period key for 30-day cycles
-    const periodKey = person.expiresAt || st.expiresAt || m;
+    const periodKey = person.expiresAt || st.expiresAt || today();
     // Try to find by periodKey first, then by calendar month (legacy)
     let idx = pays.findIndex(p=>p.month===periodKey);
-    if(idx<0) idx = pays.findIndex(p=>p.month===m);
+    // no calendar month fallback - use period key only
     if(idx>=0){pays[idx]={...pays[idx],paid:!pays[idx].paid};}
     else{pays.push({month:periodKey,paid:true,amount:pays.length===0?80000:60000});}
     await saveStudent({...st,payments:pays}); await load();
@@ -610,7 +602,7 @@ export default function AdminPersonas() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead><tr className="border-b border-white/5">
-                    {['Persona','WhatsApp','Cuenta','Vencimiento','Total',`${m}`,'Acciones'].map(h=>(
+                    {['Persona','WhatsApp','Cuenta','Vencimiento','Total','Estado actual','Acciones'].map(h=>(
                       <th key={h} className="px-4 py-3 text-left text-xs font-mono text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr></thead>
