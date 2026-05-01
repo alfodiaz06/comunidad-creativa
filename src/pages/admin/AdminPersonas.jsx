@@ -527,7 +527,7 @@ export default function AdminPersonas() {
       const newSt = {
         id: uid(), name:form.displayName, whatsapp:form.whatsapp, email:form.email,
         startDate:form.startDate, expiresAt:form.expiresAt, accountId:form.accountId||null,
-        payments:[{month: form.startDate || today(), paid: false, amount: 80000}], deletedAt:null, role:form.role, disabled:form.disabled,
+        payments:[], deletedAt:null, role:form.role, disabled:form.disabled,
         uid:uid_firebase, courseIds, accessPassword:password,
         addedBy:profile?.displayName||profile?.email||'Admin', addedAt:new Date().toISOString()
       };
@@ -550,13 +550,20 @@ export default function AdminPersonas() {
   const handleTogglePay = async (person) => {
     const st=students.find(s=>s.id===person.studentId); if(!st) return;
     const pays=[...(st.payments||[])];
-    // Use expiresAt as the period key for 30-day cycles
-    const periodKey = person.expiresAt || st.expiresAt || today();
-    // Try to find by periodKey first, then by calendar month (legacy)
+    // Period key = startDate (first period) or expiresAt of previous period
+    const periodKey = st.startDate || today();
+    // Find by startDate, expiresAt, or any existing key
     let idx = pays.findIndex(p=>p.month===periodKey);
-    // no calendar month fallback - use period key only
-    if(idx>=0){pays[idx]={...pays[idx],paid:!pays[idx].paid};}
-    else{pays.push({month:periodKey,paid:true,amount:pays.length===0?80000:60000});}
+    if(idx<0) idx = pays.findIndex(p=>p.month===person.expiresAt);
+    if(idx<0) idx = pays.findIndex(p=>p.month===st.expiresAt);
+    // First period = $80.000, subsequent = $60.000
+    const isFirstPeriod = pays.length === 0 || idx === 0;
+    const correctAmount = isFirstPeriod ? 80000 : 60000;
+    if(idx>=0){
+      pays[idx]={...pays[idx],paid:!pays[idx].paid};
+    } else {
+      pays.push({month:periodKey,paid:true,amount:correctAmount});
+    }
     await saveStudent({...st,payments:pays}); await load();
   };
 
