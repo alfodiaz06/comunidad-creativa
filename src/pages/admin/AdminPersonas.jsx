@@ -64,13 +64,25 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
 
   // Only show existing payments — no auto-generation of periods
   const allPeriods = () => {
-    return payments.map((p, idx) => ({
-      key: p.month,
-      label: p.month,
-      isFirst: idx === 0,
-      pStart: null,
-      pEnd: null,
-    }));
+    const start = new Date(student.startDate || today());
+    start.setHours(0,0,0,0);
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const periods = [];
+    let i = 0;
+    while(i < 24) {
+      const pStart = new Date(start);
+      pStart.setDate(pStart.getDate() + i * 30);
+      pStart.setHours(0,0,0,0);
+      if(pStart > now) break; // only show periods that have started
+      const pEnd = new Date(pStart);
+      pEnd.setDate(pEnd.getDate() + 29);
+      const key = pStart.toISOString().slice(0,10);
+      const label = `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`;
+      periods.push({ key, label, isFirst: i === 0, pStart, pEnd });
+      i++;
+    }
+    return periods;
   };
 
   const savePayments = async (newP) => {
@@ -81,10 +93,15 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   };
 
   const toggleMonth = async (mk) => {
-    const existing=payments.find(p=>p.month===mk);
+    // Also check legacy month key
+    const legacyMk = mk.slice(0,7);
+    const existingIdx = payments.findIndex(p=>p.month===mk || p.month===legacyMk);
     let newP;
-    if(existing){ newP=payments.map(p=>p.month===mk?{...p,paid:!p.paid}:p); }
-    else{ newP=[...payments,{month:mk,paid:true,amount:payments.length===0?80000:60000}]; }
+    if(existingIdx>=0){ 
+      newP=payments.map((p,i)=>i===existingIdx?{...p,paid:!p.paid}:p); 
+    } else { 
+      newP=[...payments,{month:mk,paid:true,amount:payments.length===0?80000:60000}]; 
+    }
     await savePayments(newP);
   };
 
@@ -123,25 +140,20 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
           <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
         </div>
         <div className="overflow-y-auto flex-1 p-5 space-y-2">
-          {payments.length === 0 ? (
+          {periods.length === 0 ? (
             <div className="text-center py-8 text-slate-500 text-sm">
-              <p>Sin pagos registrados</p>
-              <p className="text-xs mt-1">Usa el botón "Agregar pago" para registrar el primer pago</p>
+              <p>Sin períodos activos</p>
             </div>
-          ) : payments.map((p, idx)=>{
-            const paid = p?.paid;
-            const amt = p?.amount || (idx===0 ? 80000 : 60000);
-            const key = p.month;
-            // Format date nicely
-            const dateLabel = key?.length === 10
-              ? new Date(key+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})
-              : key?.length === 7
-              ? new Date(key+'-01T12:00:00').toLocaleDateString('es-CO',{month:'long',year:'numeric'})
-              : key;
+          ) : periods.map(({key, label, isFirst})=>{
+            // Find payment for this period (exact key or legacy calendar month)
+            const legacyKey = key.slice(0,7);
+            const p = payments.find(x=>x.month===key) || payments.find(x=>x.month===legacyKey);
+            const paid = p?.paid || false;
+            const amt = p?.amount || (isFirst ? 80000 : 60000);
             return (
-              <div key={key||idx} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
+              <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-obsidian-700 border border-white/5">
                 <div>
-                  <div className="text-sm font-display text-slate-200 capitalize">{dateLabel}</div>
+                  <div className="text-xs font-mono text-slate-200">{label}{isFirst?' · Primer período':''}</div>
                   <div className="text-xs font-mono text-jade-400 mt-0.5">{money(amt)}</div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -150,10 +162,10 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
                     className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors" title="Editar">
                     <Pencil className="w-3.5 h-3.5"/>
                   </button>
-                  <button onClick={()=>deletePayment(key)} disabled={loading}
+                  {p && <button onClick={()=>deletePayment(p.month)} disabled={loading}
                     className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar">
                     <Trash2 className="w-3.5 h-3.5"/>
-                  </button>
+                  </button>}
                   <button onClick={()=>toggleMonth(key)} disabled={loading}
                     className="px-2.5 py-1 rounded-lg text-xs font-display font-semibold bg-white/5 text-slate-400 hover:bg-white/10 transition-all">
                     {paid?'Revertir':'✓'}
