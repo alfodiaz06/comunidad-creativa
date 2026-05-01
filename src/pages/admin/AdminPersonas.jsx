@@ -95,6 +95,12 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
     setEditingPay(null);
   };
 
+  const deletePayment = async (mk) => {
+    if(!confirm('¿Eliminar este pago?')) return;
+    const newP = payments.filter(p=>p.month!==mk);
+    await savePayments(newP);
+  };
+
   const addNextMonth = async () => {
     const months=allMonths();
     const last=months[months.length-1];
@@ -135,6 +141,10 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
                   <button onClick={()=>setEditingPay({mk, p:{amount:amt,paid:paid||false}})}
                     className="p-1.5 text-slate-500 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors" title="Editar pago">
                     <Pencil className="w-3.5 h-3.5"/>
+                  </button>
+                  <button onClick={()=>deletePayment(mk)} disabled={loading}
+                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar pago">
+                    <Trash2 className="w-3.5 h-3.5"/>
                   </button>
                   <button onClick={()=>toggleMonth(mk)} disabled={loading}
                     className="px-2.5 py-1 rounded-lg text-xs font-display font-semibold bg-white/5 text-slate-400 hover:bg-white/10 transition-all">

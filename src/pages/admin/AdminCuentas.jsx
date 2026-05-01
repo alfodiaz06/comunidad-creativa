@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminNav from '../../components/admin/AdminNav';
-import { getAccounts, getStudents, saveAccount, deleteAccount, saveStudent, removeStudentFromAccount, statusAccount, fmt, month, money, today, add30, uid } from '../../lib/logistics';
+import { getAccounts, getStudents, saveAccount, deleteAccount, saveStudent, removeStudentFromAccount, assignStudentToAccount, statusAccount, fmt, month, money, today, add30, uid } from '../../lib/logistics';
 import { notifyAccount } from '../../lib/notifications';
+import { getAllCourses, assignCourseToUser, updateUserProfile } from '../../lib/db';
+import { apiCreateUser, apiUpdatePassword } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Copy, RefreshCw, ChevronLeft, Lock, Unlock, AlertCircle, Calendar } from 'lucide-react';
 
 function StatusBadge({ exp }) {
@@ -122,38 +125,112 @@ function EditStudentModal({ student, onClose, onSave }) {
 }
 
 // ── New Student directly from slot
+function generatePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 function NewStudentForAccountModal({ accountId, accounts, onClose, onSave }) {
-  const [form, setForm] = useState({ name:'', whatsapp:'', email:'', startDate:today() });
+  const { profile } = useAuth();
+  const [section, setSection] = useState('info');
+  const [form, setForm] = useState({ name:'', whatsapp:'', email:'', startDate:today(), role:'student', disabled:false });
+  const [password] = useState(generatePassword());
+  const [courses, setCourses] = useState([]);
+  const [courseIds, setCourseIds] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
   const acc = accounts.find(a=>a.id===accountId);
+
+  useEffect(()=>{ getAllCourses().then(setCourses).catch(()=>{}); },[]);
+
+  const toggleCourse = id => setCourseIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+
+  const handleSave = async () => {
+    if(!form.name||!form.whatsapp){setError('Nombre y WhatsApp son requeridos');return;}
+    setLoading(true);
+    try { await onSave(form, courseIds, password); onClose(); }
+    catch(e){ setError(e.message); }
+    finally{ setLoading(false); }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass-strong rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm animate-slide-up">
+      <div className="glass-strong rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg animate-slide-up max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-white/5">
           <div>
-            <h3 className="font-display font-semibold text-white">➕ Agregar estudiante</h3>
-            {acc&&<p className="text-xs font-mono text-slate-500 mt-0.5">{acc.email}</p>}
+            <h3 className="font-display font-semibold text-white">➕ Nueva persona</h3>
+            {acc&&<p className="text-xs font-mono text-slate-500 mt-0.5">Cuenta: {acc.email}</p>}
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
         </div>
-        <div className="p-5 space-y-4">
-          <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Nombre completo</label>
-            <input className="input-field" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Nombre completo" autoFocus/></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">WhatsApp</label>
-              <input className="input-field font-mono" value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="3001234567"/></div>
-            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Fecha de inicio</label>
-              <input className="input-field text-sm" type="date" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))}/></div>
-          </div>
-          <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Correo (opcional)</label>
-            <input className="input-field" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="correo@gmail.com"/></div>
+        <div className="flex gap-1 px-5 pt-4">
+          {['info','acceso'].map(s=>(
+            <button key={s} onClick={()=>setSection(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-display font-semibold transition-all
+                ${section===s?'bg-brand-500/15 text-brand-300 border border-brand-500/20':'text-slate-500 hover:bg-white/5'}`}>
+              {s==='info'?'Información':'Acceso'}
+            </button>
+          ))}
+        </div>
+        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+          {error&&<div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
+          {section==='info'&&<>
+            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Nombre completo</label>
+              <input className="input-field" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Juan García" autoFocus/></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">WhatsApp</label>
+                <input className="input-field font-mono" value={form.whatsapp} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="3001234567"/></div>
+              <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Fecha inicio</label>
+                <input className="input-field text-sm" type="date" value={form.startDate} onChange={e=>setForm(f=>({...f,startDate:e.target.value}))}/></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Rol</label>
+                <select className="input-field" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
+                  <option value="student">Estudiante</option>
+                  <option value="admin">Administrador</option>
+                </select></div>
+              <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Estado</label>
+                <select className="input-field" value={form.disabled?'disabled':'active'} onChange={e=>setForm(f=>({...f,disabled:e.target.value==='disabled'}))}>
+                  <option value="active">Activo</option>
+                  <option value="disabled">Deshabilitado</option>
+                </select></div>
+            </div>
+          </>}
+          {section==='acceso'&&<>
+            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Correo electrónico</label>
+              <input className="input-field" type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="correo@gmail.com"/></div>
+            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Contraseña generada</label>
+              <div className="relative">
+                <input className="input-field font-mono text-sm pr-10" type="text" value={password} readOnly/>
+                <button onClick={()=>{navigator.clipboard.writeText(password);setCopied(true);setTimeout(()=>setCopied(false),2000);}}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${copied?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                  {copied?<Check className="w-3.5 h-3.5"/>:<Copy className="w-3.5 h-3.5"/>}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-1.5">📋 Copia esta contraseña para enviársela.</p>
+            </div>
+            <div><label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-wider">Cursos asignados</label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {courses.map(c=>(
+                  <label key={c.id} className="flex items-center gap-3 p-3 rounded-xl bg-obsidian-700 border border-white/5 cursor-pointer hover:border-white/10 transition-colors">
+                    <div className={`w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 ${courseIds.includes(c.id)?'bg-brand-500 border-brand-500':'border-white/20'}`}>
+                      {courseIds.includes(c.id)&&<Check className="w-2.5 h-2.5 text-white"/>}
+                    </div>
+                    <input type="checkbox" className="sr-only" checked={courseIds.includes(c.id)} onChange={()=>toggleCourse(c.id)}/>
+                    <span className="text-xs font-body text-slate-300">{c.emoji} {c.title}</span>
+                  </label>
+                ))}
+                {courses.length===0&&<p className="text-xs text-slate-500">Sin cursos disponibles</p>}
+              </div>
+            </div>
+          </>}
         </div>
         <div className="p-5 border-t border-white/5 flex gap-3 justify-end">
           <button onClick={onClose} className="btn-ghost">Cancelar</button>
-          <button onClick={async()=>{if(!form.name||!form.whatsapp)return;setLoading(true);try{await onSave(form);}finally{setLoading(false);}}}
-            disabled={loading||!form.name||!form.whatsapp} className="btn-primary flex items-center gap-2">
+          <button onClick={handleSave} disabled={loading||!form.name||!form.whatsapp} className="btn-primary flex items-center gap-2">
             {loading?<div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"/>:<Check className="w-4 h-4"/>}
-            Agregar
+            {loading?'Guardando...':'Guardar'}
           </button>
         </div>
       </div>
@@ -386,11 +463,30 @@ export default function AdminCuentas() {
           accountId={modal.accountId}
           accounts={accounts}
           onClose={()=>setModal(null)}
-          onSave={async(form)=>{
-            const { uid: uidFn, saveStudent: saveSt, assignStudentToAccount: assign } = await import('../../lib/logistics');
-            const newSt={id:uidFn(),name:form.name,whatsapp:form.whatsapp,email:form.email||'',startDate:form.startDate,accountId:modal.accountId,payments:[],deletedAt:null};
-            await saveSt(newSt);
-            await assign(accounts, modal.accountId, newSt.id);
+          onSave={async(form, courseIds, password)=>{
+            // Create Firebase Auth user if email provided
+            let uid_firebase = null;
+            if(form.email) {
+              try {
+                const result = await apiCreateUser({email:form.email, password, displayName:form.name, role:form.role||'student'});
+                uid_firebase = result.uid;
+              } catch(e) { console.warn('Auth:', e.message); }
+            }
+            // Save student
+            const newSt = {
+              id: uid(), name:form.name, whatsapp:form.whatsapp, email:form.email||'',
+              startDate:form.startDate, expiresAt:add30(form.startDate||today()),
+              accountId:modal.accountId, payments:[], deletedAt:null,
+              role:form.role||'student', disabled:form.disabled||false,
+              uid:uid_firebase, courseIds:courseIds||[], accessPassword:password,
+            };
+            await saveStudent(newSt);
+            await assignStudentToAccount(accounts, modal.accountId, newSt.id);
+            // Assign courses
+            if(uid_firebase && courseIds?.length>0) {
+              try { await Promise.all(courseIds.map(id=>assignCourseToUser(uid_firebase, id))); }
+              catch(e) { console.warn('Courses:', e.message); }
+            }
             await load();
             setModal(null);
           }}
