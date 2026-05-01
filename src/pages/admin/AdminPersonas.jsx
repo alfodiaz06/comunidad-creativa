@@ -62,24 +62,24 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
   const [editingPay, setEditingPay] = useState(null);
   const m = month();
 
-  // Generate periods based on 30-day cycles from startDate
+  // Generate ONE period per 30-day cycle from startDate
+  // Period: startDate → startDate+30days, then startDate+30 → startDate+60, etc.
   const allPeriods = () => {
     const periods = [];
     const start = new Date(student.startDate || today());
     const now = new Date();
-    let periodStart = new Date(start);
-    let periodEnd = new Date(start);
-    periodEnd.setDate(periodEnd.getDate() + 30);
-    // Generate all complete and current periods
-    while(periodStart <= now) {
-      periods.push({
-        key: periodEnd.toISOString().slice(0,10), // use end date as key
-        label: `${periodStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})} → ${periodEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`,
-        isFirst: periods.length === 0,
-      });
-      periodStart = new Date(periodEnd);
-      periodEnd = new Date(periodStart);
-      periodEnd.setDate(periodEnd.getDate() + 30);
+    let i = 0;
+    while(true) {
+      const pStart = new Date(start);
+      pStart.setDate(pStart.getDate() + i * 30);
+      const pEnd = new Date(pStart);
+      pEnd.setDate(pEnd.getDate() + 29); // 30 days inclusive: day 1 to day 30
+      const key = pStart.toISOString().slice(0,10); // key = start of period
+      const label = `${pStart.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})} → ${pEnd.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`;
+      periods.push({ key, label, isFirst: i === 0, pStart, pEnd });
+      if(pStart > now) break; // stop after current period
+      i++;
+      if(i > 24) break; // max 24 periods (2 years)
     }
     return periods;
   };
@@ -116,13 +116,13 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
 
   const addNextMonth = async () => {
     const periods=allPeriods();
-    const lastKey = periods[periods.length-1]?.key;
-    if(!lastKey) return;
-    const lastDate = new Date(lastKey);
-    const nextEnd = new Date(lastDate);
-    nextEnd.setDate(nextEnd.getDate()+30);
-    const nextKey = nextEnd.toISOString().slice(0,10);
-    await savePayments([...payments,{month:nextKey,paid:false,amount:60000}]);
+    const last = periods[periods.length-1];
+    if(!last) return;
+    const nextStart = new Date(last.pStart);
+    nextStart.setDate(nextStart.getDate()+30);
+    const nextKey = nextStart.toISOString().slice(0,10);
+    if(!payments.find(p=>p.month===nextKey))
+      await savePayments([...payments,{month:nextKey,paid:false,amount:60000}]);
   };
 
   const totalPaid=payments.filter(p=>p.paid).reduce((s,p)=>s+p.amount,0);
@@ -141,8 +141,9 @@ function PayCalendarModal({ student, onClose, onUpdate }) {
         </div>
         <div className="overflow-y-auto flex-1 p-5 space-y-2">
           {allPeriods().map(({key, label, isFirst})=>{
-            const p=payments.find(x=>x.month===key)
-              || (isFirst ? payments.find(x=>x.month===student.startDate?.slice(0,7)) : null);
+            // Find payment: by exact key (period start date) or legacy calendar month
+            const legacyKey = key.slice(0,7); // "2026-04" from "2026-04-01"
+            const p = payments.find(x=>x.month===key) || payments.find(x=>x.month===legacyKey);
             const paid=p?.paid;
             const amt=p?.amount||(isFirst?80000:60000);
             return (

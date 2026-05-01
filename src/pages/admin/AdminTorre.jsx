@@ -63,8 +63,27 @@ export default function AdminTorre() {
   useEffect(() => { load(); }, [load]);
 
   const active = students.filter(s=>!s.deletedAt);
-  const mPaid = active.reduce((sum,st)=>{const p=(st.payments||[]).find(x=>x.month===m&&x.paid);return sum+(p?p.amount:0);},0);
-  const mPending = active.reduce((sum,st)=>{const pays=st.payments||[];const p=pays.find(x=>x.month===m);if(p?.paid) return sum;return sum+(p?.amount||(pays.length>1?60000:80000));},0);
+  // Find current period payment for each student (most recent, based on expiresAt cycle)
+  const getCurrentPay = (st) => {
+    const pays = st.payments||[];
+    if(pays.length===0) return null;
+    // Sort by date descending, return most recent
+    return [...pays].sort((a,b)=>{
+      const da = new Date(a.month?.length===7 ? a.month+'-01' : a.month||0);
+      const db = new Date(b.month?.length===7 ? b.month+'-01' : b.month||0);
+      return db-da;
+    })[0];
+  };
+  const mPaid = active.reduce((sum,st)=>{
+    const p=getCurrentPay(st);
+    return sum+(p?.paid?p.amount:0);
+  },0);
+  const mPending = active.reduce((sum,st)=>{
+    const pays=st.payments||[];
+    const p=getCurrentPay(st);
+    if(p?.paid) return sum;
+    return sum+(p?.amount||(pays.length>1?60000:80000));
+  },0);
   const totalAdsAll = ads.reduce((s,a)=>s+a.amount,0);
   const totalAdsMonth = ads.filter(a=>a.date?.slice(0,7)===m).reduce((s,a)=>s+a.amount,0);
   const totalHistoric = active.reduce((sum,st)=>sum+(st.payments||[]).filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
@@ -94,17 +113,19 @@ export default function AdminTorre() {
   };
 
   const filteredStudents = active.filter(s=>{
-    if(filter==='paid'){ const p=(s.payments||[]).find(x=>x.month===m); return p?.paid; }
-    if(filter==='pending'){ const p=(s.payments||[]).find(x=>x.month===m); return !p?.paid; }
+    if(filter==='paid'){ const p=getCurrentPay(s); return p?.paid||false; }
+    if(filter==='pending'){ const p=getCurrentPay(s); return !p?.paid; }
     return true;
   });
 
 
   const handleTogglePay = async (st) => {
     const pays=[...(st.payments||[])];
-    const idx=pays.findIndex(p=>p.month===m);
+    const currentPay = getCurrentPay(st);
+    const periodKey = currentPay?.month || st.expiresAt || m;
+    const idx = pays.findIndex(p=>p.month===periodKey);
     if(idx>=0){pays[idx]={...pays[idx],paid:!pays[idx].paid};}
-    else{pays.push({month:m,paid:true,amount:pays.length===0?80000:60000});}
+    else{pays.push({month:periodKey,paid:true,amount:pays.length===0?80000:60000});}
     await saveStudent({...st,payments:pays}); await load();
   };
 
@@ -275,7 +296,7 @@ export default function AdminTorre() {
                 <tbody className="divide-y divide-white/5">
                   {filteredStudents.map(st=>{
                     const acc=accounts.find(a=>a.id===st.accountId);
-                    const pay=(st.payments||[]).find(p=>p.month===m);
+                    const pay=getCurrentPay(st);
                     const amt=pay?.amount||((st.payments||[]).length<=1?80000:60000);
                     return (
                       <tr key={st.id} className="hover:bg-white/2 transition-colors">
