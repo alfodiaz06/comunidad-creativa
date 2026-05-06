@@ -146,7 +146,7 @@ function ModuleEditor({ courseId, module, onUpdate, onDelete }) {
     <div className="card mb-4">
       {/* Module header */}
       <div className="flex items-center gap-3 mb-3">
-        <GripVertical className="w-4 h-4 text-slate-700 flex-shrink-0" />
+        <GripVertical className="w-4 h-4 text-slate-500 flex-shrink-0 cursor-grab active:cursor-grabbing" title="Arrastra para reordenar"/>
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex gap-2">
@@ -241,6 +241,8 @@ export default function AdminCourseEditor() {
   const [course, setCourse] = useState(null);
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
 
   const load = async () => {
     const [c, m] = await Promise.all([getCourse(courseId), getModules(courseId)]);
@@ -250,6 +252,26 @@ export default function AdminCourseEditor() {
   };
 
   useEffect(() => { load(); }, [courseId]);
+
+  const handleDragStart = (idx) => setDragIdx(idx);
+  const handleDragOver = (e, idx) => { e.preventDefault(); setDragOver(idx); };
+
+  const handleDrop = async (e, dropIdx) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); setDragOver(null); return; }
+    const reordered = [...modules];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(dropIdx, 0, moved);
+    // Update order numbers
+    const updated = reordered.map((m, i) => ({ ...m, order: i + 1 }));
+    setModules(updated);
+    setDragIdx(null);
+    setDragOver(null);
+    // Save new order to DB
+    await Promise.all(updated.map(m => updateModule(courseId, m.id, { order: m.order })));
+  };
+
+  const handleDragEnd = () => { setDragIdx(null); setDragOver(null); };
 
   const handleAddModule = async () => {
     const title = prompt('Nombre del módulo:');
@@ -311,14 +333,30 @@ export default function AdminCourseEditor() {
                 </div>
               ) : (
                 <div className="animate-slide-up">
-                  {modules.map(m => (
-                    <ModuleEditor
+                  {modules.map((m, idx) => (
+                    <div
                       key={m.id}
-                      courseId={courseId}
-                      module={m}
-                      onDelete={handleDeleteModule}
-                      onUpdate={handleUpdateCount}
-                    />
+                      draggable
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDrop={(e) => handleDrop(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      className={`transition-all duration-200 ${
+                        dragOver === idx && dragIdx !== idx
+                          ? 'border-2 border-brand-500/50 rounded-2xl scale-[1.01]'
+                          : dragIdx === idx
+                          ? 'opacity-40 scale-[0.98]'
+                          : ''
+                      }`}
+                    >
+                      <ModuleEditor
+                        courseId={courseId}
+                        module={m}
+                        onDelete={handleDeleteModule}
+                        onUpdate={handleUpdateCount}
+                        isDragging={dragIdx === idx}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
