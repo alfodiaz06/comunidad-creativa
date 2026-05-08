@@ -243,6 +243,9 @@ export default function AdminCourseEditor() {
   const [loading, setLoading] = useState(true);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [orderChanged, setOrderChanged] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [orderSaved, setOrderSaved] = useState(false);
 
   const load = async () => {
     const [c, m] = await Promise.all([getCourse(courseId), getModules(courseId)]);
@@ -255,23 +258,30 @@ export default function AdminCourseEditor() {
 
   const handleDragStart = (idx) => setDragIdx(idx);
   const handleDragOver = (e, idx) => { e.preventDefault(); setDragOver(idx); };
+  const handleDragEnd = () => { setDragIdx(null); setDragOver(null); };
 
-  const handleDrop = async (e, dropIdx) => {
+  const handleDrop = (e, dropIdx) => {
     e.preventDefault();
     if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); setDragOver(null); return; }
     const reordered = [...modules];
     const [moved] = reordered.splice(dragIdx, 1);
     reordered.splice(dropIdx, 0, moved);
-    // Update order numbers
-    const updated = reordered.map((m, i) => ({ ...m, order: i + 1 }));
-    setModules(updated);
+    setModules(reordered.map((m, i) => ({ ...m, order: i + 1 })));
     setDragIdx(null);
     setDragOver(null);
-    // Save new order to DB
-    await Promise.all(updated.map(m => updateModule(courseId, m.id, { order: m.order })));
+    setOrderChanged(true);
+    setOrderSaved(false);
   };
 
-  const handleDragEnd = () => { setDragIdx(null); setDragOver(null); };
+  const handleSaveOrder = async () => {
+    setSavingOrder(true);
+    try {
+      await Promise.all(modules.map((m, i) => updateModule(courseId, m.id, { order: i + 1 })));
+      setOrderChanged(false);
+      setOrderSaved(true);
+      setTimeout(() => setOrderSaved(false), 2000);
+    } finally { setSavingOrder(false); }
+  };
 
   const handleAddModule = async () => {
     const title = prompt('Nombre del módulo:');
@@ -325,6 +335,24 @@ export default function AdminCourseEditor() {
             </div>
           ) : (
             <>
+              {/* Save order button — shows when order has changed */}
+              {orderChanged && (
+                <div className="mb-4 flex items-center justify-between p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 animate-fade-in">
+                  <span className="text-sm text-brand-300 font-display">Orden modificado — guarda para aplicar a estudiantes</span>
+                  <button onClick={handleSaveOrder} disabled={savingOrder}
+                    className="btn-primary flex items-center gap-2 text-sm py-1.5">
+                    {savingOrder
+                      ? <><div className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin"/>Guardando...</>
+                      : <><Check className="w-3.5 h-3.5"/>Guardar orden</>
+                    }
+                  </button>
+                </div>
+              )}
+              {orderSaved && (
+                <div className="mb-4 p-3 rounded-xl bg-jade-500/10 border border-jade-500/20 animate-fade-in">
+                  <span className="text-sm text-jade-400 font-display">✓ Orden guardado — los estudiantes verán el nuevo orden</span>
+                </div>
+              )}
               {modules.length === 0 ? (
                 <div className="card text-center py-16 mb-4">
                   <BookOpen className="w-10 h-10 text-slate-700 mx-auto mb-3" />
