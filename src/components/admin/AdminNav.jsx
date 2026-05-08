@@ -27,8 +27,8 @@ export default function AdminNav() {
       <div className="p-5 border-b border-white/5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
-              <Flame className="w-4 h-4 text-brand-400"/>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:"linear-gradient(135deg,#1a64ff,#ff7c00)"}}>
+              <Flame className="w-4 h-4 text-white"/>
             </div>
             <div>
               <div className="font-display font-bold text-white text-sm leading-tight">Comunidad</div>
@@ -80,8 +80,8 @@ export default function AdminNav() {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 glass-strong border-b border-white/5">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
-            <Flame className="w-3.5 h-3.5 text-brand-400"/>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#1a64ff,#ff7c00)"}}>
+            <Flame className="w-3.5 h-3.5 text-white"/>
           </div>
           <span className="font-display font-bold text-white text-sm">Comunidad <span className="text-brand-400">Creativa</span></span>
         </div>
