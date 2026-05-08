@@ -76,15 +76,20 @@ export default function AdminDashboard() {
   );
 
   const { users, courses, accounts, active, mPaid, mPending, totalHistoric, totalAdsMonth } = data;
+
+  const getCurrentPaySimple = (st) => {
+    const pays = st.payments || [];
+    if (!pays.length) return null;
+    return [...pays].sort((a,b) => new Date(b.month?.length===7?b.month+'-01':b.month||0) - new Date(a.month?.length===7?a.month+'-01':a.month||0))[0];
+  };
+
   const range = getRange(rangeKey, rangeCustom);
-  // Filter ads by selected range
   const adsInRange = data.ads.filter(a => {
     if (!a.date) return false;
     const d = new Date(a.date);
     return d >= range.from && d <= range.to;
   });
   const totalAdsRange = adsInRange.reduce((s, a) => s + a.amount, 0);
-  // Filter payments by selected range
   const mPaidRange = active.reduce((sum, st) => {
     const pays = (st.payments || []).filter(p => {
       const d = new Date(p.month?.length === 7 ? p.month + '-01' : p.month || 0);
@@ -100,11 +105,6 @@ export default function AdminDashboard() {
   }, 0);
   const netMonth = mPaidRange - totalAdsRange;
   const activeAccounts = accounts.filter(a => statusAccount(a.expiresAt) !== 'expired');
-  const getCurrentPaySimple = (st) => {
-    const pays = st.payments || [];
-    if (!pays.length) return null;
-    return [...pays].sort((a,b) => new Date(b.month?.length===7?b.month+'-01':b.month||0) - new Date(a.month?.length===7?a.month+'-01':a.month||0))[0];
-  };
   const pendingStudents = active.filter(s => !getCurrentPaySimple(s)?.paid);
 
   return (
