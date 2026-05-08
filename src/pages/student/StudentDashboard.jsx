@@ -92,7 +92,7 @@ export default function StudentDashboard() {
         // Load courses from Firestore immediately (fast)
         const courseIds = await getUserAssignedCourses(user.uid);
         const courseData = await Promise.all(courseIds.map(id => getCourse(id)));
-        const validCourses = courseData.filter(Boolean);
+        const validCourses = courseData.filter(Boolean).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         setCourses(validCourses);
 
         const allProgress = await getAllUserProgress(user.uid);
@@ -123,7 +123,7 @@ export default function StudentDashboard() {
               // Reload courses if new ones were added
               const updatedIds = await getUserAssignedCourses(user.uid);
               const updatedData = await Promise.all(updatedIds.map(id => getCourse(id)));
-              setCourses(updatedData.filter(Boolean));
+              setCourses(updatedData.filter(Boolean).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
             }
           }
         }
