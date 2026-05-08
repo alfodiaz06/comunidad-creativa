@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { getAllCourses, createCourse, deleteCourse, updateCourse, assignCourseToUser, getUserAssignedCourses } from '../../lib/db';
 import { getStudents } from '../../lib/logistics';
 import AdminNav from '../../components/admin/AdminNav';
-import { Plus, Pencil, Trash2, BookOpen, ChevronRight, X, Check, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, BookOpen, ChevronRight, X, Check, Users, GripVertical } from 'lucide-react';
 
 function CourseModal({ course, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -235,10 +235,29 @@ export default function AdminCourses() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [assignModal, setAssignModal] = useState(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
+
+  const handleDragStart = (idx) => setDragIdx(idx);
+  const handleDragOver = (e, idx) => { e.preventDefault(); setDragOver(idx); };
+  const handleDragEnd = () => { setDragIdx(null); setDragOver(null); };
+
+  const handleDrop = async (e, dropIdx) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); setDragOver(null); return; }
+    const reordered = [...courses];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(dropIdx, 0, moved);
+    const updated = reordered.map((c, i) => ({ ...c, order: i + 1 }));
+    setCourses(updated);
+    setDragIdx(null);
+    setDragOver(null);
+    await Promise.all(updated.map(c => updateCourse(c.id, { order: c.order })));
+  };
 
   const load = async () => {
     const c = await getAllCourses();
-    setCourses(c);
+    setCourses(c.sort((a, b) => (a.order || 0) - (b.order || 0)));
     setLoading(false);
   };
 
@@ -286,10 +305,24 @@ export default function AdminCourses() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-slide-up">
-              {courses.map(course => (
-                <div key={course.id} className="card group">
+              {courses.map((course, idx) => (
+                <div
+                  key={course.id}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={`card group transition-all duration-200 ${
+                    dragOver === idx && dragIdx !== idx ? 'border-brand-500/50 scale-[1.02]' :
+                    dragIdx === idx ? 'opacity-40 scale-[0.98]' : ''
+                  }`}
+                >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="text-2xl">{course.emoji || '📚'}</div>
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="w-4 h-4 text-slate-600 cursor-grab active:cursor-grabbing flex-shrink-0" title="Arrastra para reordenar"/>
+                      <div className="text-2xl">{course.emoji || '📚'}</div>
+                    </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => setModal(course)}
