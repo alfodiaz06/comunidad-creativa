@@ -72,7 +72,8 @@ export const getModules = async (courseId) => {
   const snap = await getDocs(
     query(collection(db, 'courses', courseId, 'modules'), orderBy('order', 'asc'))
   );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const modules = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return modules.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 };
 
 export const updateModule = async (courseId, moduleId, data) => {
