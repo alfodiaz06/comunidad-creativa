@@ -250,7 +250,15 @@ export default function AdminCourseEditor() {
   const load = async () => {
     const [c, m] = await Promise.all([getCourse(courseId), getModules(courseId)]);
     setCourse(c);
-    setModules(m);
+    // Auto-assign order to modules that don't have it
+    const needsOrder = m.some(mod => mod.order == null);
+    if (needsOrder) {
+      const fixed = m.map((mod, i) => ({ ...mod, order: i + 1 }));
+      await Promise.all(fixed.map(mod => updateModule(courseId, mod.id, { order: mod.order })));
+      setModules(fixed);
+    } else {
+      setModules(m);
+    }
     setLoading(false);
   };
 
