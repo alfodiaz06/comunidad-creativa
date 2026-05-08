@@ -27,6 +27,12 @@ export default {
           500: '#ff7c00',
           600: '#e06500',
         },
+        accent: {
+          300: '#6ba3ff',
+          400: '#3d82ff',
+          500: '#1a64ff',
+          600: '#0047e0',
+        },
         jade: {
           300: '#6ef5be',
           400: '#2ee89a',
@@ -45,26 +51,12 @@ export default {
         'shimmer': 'shimmer 1.5s ease-in-out infinite',
       },
       keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(16px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        pulseSoft: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.6' },
-        },
-        shimmer: {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
-        },
+        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        slideUp: { '0%': { opacity: '0', transform: 'translateY(16px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        pulseSoft: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.6' } },
+        shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
       },
-      backdropBlur: {
-        xs: '2px',
-      }
+      backdropBlur: { xs: '2px' }
     },
   },
   plugins: [],
