@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllCourses, createCourse, deleteCourse, updateCourse } from '../../lib/db';
+import { getAllCourses, createCourse, deleteCourse, updateCourse, assignCourseToUser, getUserAssignedCourses } from '../../lib/db';
+import { getStudents } from '../../lib/logistics';
 import AdminNav from '../../components/admin/AdminNav';
-import { Plus, Pencil, Trash2, BookOpen, ChevronRight, X, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, BookOpen, ChevronRight, X, Check, Users } from 'lucide-react';
 
 function CourseModal({ course, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -97,10 +98,143 @@ function CourseModal({ course, onClose, onSave }) {
   );
 }
 
+// ── Assign Students Modal
+function AssignStudentsModal({ course, onClose }) {
+  const [students, setStudents] = useState([]);
+  const [selected, setSelected] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+  const [selectAll, setSelectAll] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      const sts = await getStudents();
+      const active = sts.filter(s => !s.deletedAt && s.uid);
+      setStudents(active);
+      // Pre-select students who already have this course
+      const alreadyHave = new Set();
+      await Promise.all(active.map(async s => {
+        if (s.uid) {
+          const courses = await getUserAssignedCourses(s.uid);
+          if (courses.includes(course.id)) alreadyHave.add(s.id);
+        }
+      }));
+      setSelected(alreadyHave);
+      setLoading(false);
+    };
+    load();
+  }, [course.id]);
+
+  const toggleAll = () => {
+    if (selectAll) {
+      setSelected(new Set());
+      setSelectAll(false);
+    } else {
+      setSelected(new Set(students.map(s => s.id)));
+      setSelectAll(true);
+    }
+  };
+
+  const toggle = (id) => {
+    const next = new Set(selected);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setSelected(next);
+    setSelectAll(next.size === students.length);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await Promise.all(students.map(async s => {
+        if (!s.uid) return;
+        const current = await getUserAssignedCourses(s.uid);
+        if (selected.has(s.id) && !current.includes(course.id)) {
+          await assignCourseToUser(s.uid, course.id);
+          // Also update courseIds in RTDB
+          const { saveStudent } = await import('../../lib/logistics');
+          const courseIds = [...new Set([...(s.courseIds||[]), course.id])];
+          await saveStudent({...s, courseIds});
+        }
+      }));
+      setDone(true);
+      setTimeout(onClose, 1500);
+    } finally { setSaving(false); }
+  };
+
+  const activeStudents = students.filter(s => s.uid); // only with Firebase access
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="glass-strong rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md animate-slide-up max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div>
+            <h3 className="font-display font-semibold text-white">👥 Agregar estudiantes</h3>
+            <p className="text-xs font-mono text-slate-500 mt-0.5">{course.emoji} {course.title}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-200"><X className="w-5 h-5"/></button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="w-6 h-6 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin"/>
+          </div>
+        ) : (
+          <>
+            {/* Select all */}
+            <div className="px-5 py-3 border-b border-white/5">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div onClick={toggleAll}
+                  className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer
+                    ${selectAll ? 'bg-brand-500 border-brand-500' : 'border-white/20 hover:border-white/40'}`}>
+                  {selectAll && <Check className="w-3 h-3 text-white"/>}
+                </div>
+                <span className="text-sm font-display font-semibold text-white">Seleccionar todos</span>
+                <span className="text-xs font-mono text-slate-500 ml-auto">{selected.size}/{activeStudents.length}</span>
+              </label>
+            </div>
+
+            {/* Student list */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-2">
+              {activeStudents.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-8">Sin estudiantes con acceso activo</p>
+              ) : activeStudents.map(st => (
+                <label key={st.id} className="flex items-center gap-3 p-3 rounded-xl bg-obsidian-700 border border-white/5 cursor-pointer hover:border-white/10 transition-colors">
+                  <div onClick={() => toggle(st.id)}
+                    className={`w-4 h-4 rounded-md border flex items-center justify-center flex-shrink-0 transition-all cursor-pointer
+                      ${selected.has(st.id) ? 'bg-brand-500 border-brand-500' : 'border-white/20'}`}>
+                    {selected.has(st.id) && <Check className="w-2.5 h-2.5 text-white"/>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-display text-slate-200">{st.name}</div>
+                    <div className="text-xs font-mono text-slate-500">{st.email}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="p-5 border-t border-white/5 flex gap-3 justify-end">
+              <button onClick={onClose} className="btn-ghost">Cancelar</button>
+              <button onClick={handleSave} disabled={saving || selected.size === 0}
+                className="btn-primary flex items-center gap-2">
+                {done ? <><Check className="w-4 h-4"/>¡Listo!</>
+                  : saving ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"/>Guardando...</>
+                  : <><Users className="w-4 h-4"/>Asignar {selected.size} estudiante{selected.size!==1?'s':''}</>
+                }
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminCourses() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
+  const [assignModal, setAssignModal] = useState(null);
 
   const load = async () => {
     const c = await getAllCourses();
@@ -175,12 +309,20 @@ export default function AdminCourses() {
                   <p className="text-slate-500 text-xs font-body line-clamp-2 mb-4">{course.description || 'Sin descripción'}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-mono text-slate-600">{course.totalLessons || 0} lecciones</span>
-                    <Link
-                      to={`/admin/courses/${course.id}/edit`}
-                      className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 transition-colors font-body"
-                    >
-                      Editar contenido <ChevronRight className="w-3 h-3" />
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setAssignModal(course)}
+                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-200 transition-colors font-body"
+                      >
+                        <Users className="w-3 h-3"/> Estudiantes
+                      </button>
+                      <Link
+                        to={`/admin/courses/${course.id}/edit`}
+                        className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 transition-colors font-body"
+                      >
+                        Editar <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -194,6 +336,12 @@ export default function AdminCourses() {
           course={modal === 'create' ? null : modal}
           onClose={() => setModal(null)}
           onSave={handleSave}
+        />
+      )}
+      {assignModal && (
+        <AssignStudentsModal
+          course={assignModal}
+          onClose={() => setAssignModal(null)}
         />
       )}
     </div>
