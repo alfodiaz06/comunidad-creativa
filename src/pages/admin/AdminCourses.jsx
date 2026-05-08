@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { getAllCourses, createCourse, deleteCourse, updateCourse, assignCourseToUser, getUserAssignedCourses } from '../../lib/db';
 import { getStudents } from '../../lib/logistics';
 import AdminNav from '../../components/admin/AdminNav';
-import { Plus, Pencil, Trash2, BookOpen, ChevronRight, X, Check, Users, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, BookOpen, ChevronRight, X, Check, Users, GripVertical, Save } from 'lucide-react';
 
 function CourseModal({ course, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -237,22 +237,35 @@ export default function AdminCourses() {
   const [assignModal, setAssignModal] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [orderChanged, setOrderChanged] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
 
   const handleDragStart = (idx) => setDragIdx(idx);
   const handleDragOver = (e, idx) => { e.preventDefault(); setDragOver(idx); };
   const handleDragEnd = () => { setDragIdx(null); setDragOver(null); };
 
-  const handleDrop = async (e, dropIdx) => {
+  const handleDrop = (e, dropIdx) => {
     e.preventDefault();
     if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); setDragOver(null); return; }
     const reordered = [...courses];
     const [moved] = reordered.splice(dragIdx, 1);
     reordered.splice(dropIdx, 0, moved);
-    const updated = reordered.map((c, i) => ({ ...c, order: i + 1 }));
-    setCourses(updated);
+    setCourses(reordered.map((c, i) => ({ ...c, order: i + 1 })));
     setDragIdx(null);
     setDragOver(null);
-    await Promise.all(updated.map(c => updateCourse(c.id, { order: c.order })));
+    setOrderChanged(true);
+    setSavedOk(false);
+  };
+
+  const handleSaveOrder = async () => {
+    setSavingOrder(true);
+    try {
+      await Promise.all(courses.map((c, i) => updateCourse(c.id, { order: i + 1 })));
+      setOrderChanged(false);
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 3000);
+    } finally { setSavingOrder(false); }
   };
 
   const load = async () => {
@@ -288,9 +301,25 @@ export default function AdminCourses() {
               <h1 className="font-display text-2xl font-bold text-white">Cursos</h1>
               <p className="text-slate-500 text-sm font-body mt-1">{courses.length} cursos en la plataforma</p>
             </div>
-            <button onClick={() => setModal('create')} className="btn-primary flex items-center gap-2">
-              <Plus className="w-4 h-4" /> Nuevo curso
-            </button>
+            <div className="flex items-center gap-3">
+              {orderChanged && (
+                <button onClick={handleSaveOrder} disabled={savingOrder}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500/15 text-brand-300 border border-brand-500/30 hover:bg-brand-500/25 transition-all text-sm font-display font-semibold">
+                  {savingOrder
+                    ? <><div className="w-4 h-4 rounded-full border-2 border-brand-400/30 border-t-brand-400 animate-spin"/>Guardando...</>
+                    : <><Save className="w-4 h-4"/>Guardar orden</>
+                  }
+                </button>
+              )}
+              {savedOk && (
+                <span className="text-sm text-jade-400 font-display flex items-center gap-1.5">
+                  <Check className="w-4 h-4"/>Orden guardado
+                </span>
+              )}
+              <button onClick={() => setModal('create')} className="btn-primary flex items-center gap-2">
+                <Plus className="w-4 h-4"/> Nuevo curso
+              </button>
+            </div>
           </div>
 
           {loading ? (
