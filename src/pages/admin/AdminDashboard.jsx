@@ -4,6 +4,7 @@ import { getAllUsers, getAllCourses } from '../../lib/db';
 import { getAccounts, getStudents, getAds, statusAccount, money, month, fmt } from '../../lib/logistics';
 import AdminNav from '../../components/admin/AdminNav';
 import { Users, BookOpen, ChevronRight, TrendingUp, DollarSign, AlertCircle, Check } from 'lucide-react';
+import DateRangePicker, { getRange } from '../../components/shared/DateRangePicker';
 
 function KpiCard({ label, value, sub, color = 'brand', onClick }) {
   const colors = { brand: 'text-brand-400', jade: 'text-jade-400', amber: 'text-amber-400', red: 'text-red-400', slate: 'text-slate-300' };
@@ -19,6 +20,13 @@ function KpiCard({ label, value, sub, color = 'brand', onClick }) {
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [rangeKey, setRangeKey] = useState('30d');
+  const [rangeCustom, setRangeCustom] = useState({});
+
+  const handleRangeChange = (key, custom) => {
+    setRangeKey(key);
+    setRangeCustom(custom || {});
+  };
   const m = month();
 
   useEffect(() => {
@@ -68,7 +76,29 @@ export default function AdminDashboard() {
   );
 
   const { users, courses, accounts, active, mPaid, mPending, totalHistoric, totalAdsMonth } = data;
-  const netMonth = mPaid - totalAdsMonth;
+  const range = getRange(rangeKey, rangeCustom);
+  // Filter ads by selected range
+  const adsInRange = data.ads.filter(a => {
+    if (!a.date) return false;
+    const d = new Date(a.date);
+    return d >= range.from && d <= range.to;
+  });
+  const totalAdsRange = adsInRange.reduce((s, a) => s + a.amount, 0);
+  // Filter payments by selected range
+  const mPaidRange = active.reduce((sum, st) => {
+    const pays = (st.payments || []).filter(p => {
+      const d = new Date(p.month?.length === 7 ? p.month + '-01' : p.month || 0);
+      return p.paid && d >= range.from && d <= range.to;
+    });
+    return sum + pays.reduce((s, p) => s + p.amount, 0);
+  }, 0);
+  const mPendingRange = active.reduce((sum, st) => {
+    const pays = st.payments || [];
+    const p = getCurrentPaySimple(st);
+    if (p?.paid) return sum;
+    return sum + (p?.amount || (pays.length > 1 ? 60000 : 80000));
+  }, 0);
+  const netMonth = mPaidRange - totalAdsRange;
   const activeAccounts = accounts.filter(a => statusAccount(a.expiresAt) !== 'expired');
   const getCurrentPaySimple = (st) => {
     const pays = st.payments || [];
@@ -82,9 +112,12 @@ export default function AdminDashboard() {
       <AdminNav />
       <main className="flex-1 lg:overflow-auto p-4 pt-16 lg:pt-8 sm:px-6 lg:px-8 lg:py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-8 animate-fade-in">
-            <h1 className="font-display text-2xl font-bold text-white">Panel de administración</h1>
-            <p className="text-slate-500 text-sm mt-1">Vista general de toda la plataforma</p>
+          <div className="mb-8 animate-fade-in flex items-start justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="font-display text-2xl font-bold text-white">Panel de administración</h1>
+              <p className="text-slate-500 text-sm mt-1">Vista general de toda la plataforma</p>
+            </div>
+            <DateRangePicker value={rangeKey} onChange={handleRangeChange}/>
           </div>
 
           {/* KPIs principales */}
@@ -92,9 +125,9 @@ export default function AdminDashboard() {
             <KpiCard label="Personas registradas" value={active.length} sub={`${users.length} con acceso`} color="brand" />
             <KpiCard label="Cuentas activas" value={activeAccounts.length} sub={`${accounts.filter(a=>statusAccount(a.expiresAt)==='expired').length} vencidas`} color="jade" />
             <KpiCard label="Cursos" value={courses.length} color="slate" />
-            <KpiCard label="Ingresos actuales" value={money(mPaid)} sub="período actual" color="jade" />
-            <KpiCard label="Pendiente actual" value={money(mPending)} sub={`${pendingStudents.length} personas`} color="amber" />
-            <KpiCard label="Ganancia neta actual" value={money(netMonth)} sub="ingresos - publicidad" color="jade" />
+            <KpiCard label="Ingresos" value={money(mPaidRange)} sub="período seleccionado" color="jade" />
+            <KpiCard label="Pendiente actual" value={money(mPendingRange)} sub={`${pendingStudents.length} personas`} color="amber" />
+            <KpiCard label="Ganancia neta" value={money(netMonth)} sub="ingresos - publicidad" color="jade" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">

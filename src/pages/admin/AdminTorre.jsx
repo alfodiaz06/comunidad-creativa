@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import AdminNav from '../../components/admin/AdminNav';
 import { getAccounts, getStudents, getAds, saveAd, deleteAd, saveStudent, statusAccount, money, month, fmt, today } from '../../lib/logistics';
 import { Plus, Trash2, X, Check, Megaphone, AlertCircle, UserCheck } from 'lucide-react';
+import DateRangePicker, { getRange } from '../../components/shared/DateRangePicker';
 
 function AdModal({ onClose, onSave }) {
   const [form, setForm] = useState({ name:'', platform:'Facebook Ads', amount:'', date:today() });
@@ -49,6 +50,8 @@ export default function AdminTorre() {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
+  const [rangeKey, setRangeKey] = useState('30d');
+  const [rangeCustom, setRangeCustom] = useState({});
   const [filter, setFilter] = useState('all');
   const m = month();
 
@@ -67,29 +70,39 @@ export default function AdminTorre() {
   const getCurrentPay = (st) => {
     const pays = st.payments||[];
     if(pays.length===0) return null;
-    // Sort by date descending, return most recent
     return [...pays].sort((a,b)=>{
       const da = new Date(a.month?.length===7 ? a.month+'-01' : a.month||0);
       const db = new Date(b.month?.length===7 ? b.month+'-01' : b.month||0);
       return db-da;
     })[0];
   };
+
+  const range = getRange(rangeKey, rangeCustom);
+
+  // Payments in selected range
   const mPaid = active.reduce((sum,st)=>{
-    const p=getCurrentPay(st);
-    return sum+(p?.paid?p.amount:0);
+    const pays = (st.payments||[]).filter(p => {
+      const d = new Date(p.month?.length===7 ? p.month+'-01' : p.month||0);
+      return p.paid && d >= range.from && d <= range.to;
+    });
+    return sum + pays.reduce((s,p)=>s+p.amount,0);
   },0);
+
   const mPending = active.reduce((sum,st)=>{
     const pays=st.payments||[];
     const p=getCurrentPay(st);
     if(p?.paid) return sum;
     return sum+(p?.amount||(pays.length>1?60000:80000));
   },0);
+
   const totalAdsAll = ads.reduce((s,a)=>s+a.amount,0);
-  const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+  // Ads in selected range
   const totalAdsMonth = ads.filter(a=>{
     if(!a.date) return false;
-    return new Date(a.date) >= thirtyDaysAgo;
+    const d = new Date(a.date);
+    return d >= range.from && d <= range.to;
   }).reduce((s,a)=>s+a.amount,0);
+
   const totalHistoric = active.reduce((sum,st)=>sum+(st.payments||[]).filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
   const netMonth = mPaid - totalAdsMonth;
   const netTotal = totalHistoric - totalAdsAll;
@@ -138,9 +151,12 @@ export default function AdminTorre() {
       <AdminNav/>
       <main className="flex-1 lg:overflow-auto p-4 pt-16 lg:pt-8 sm:px-6 lg:px-8 lg:py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6">
-            <h1 className="font-display text-2xl font-bold text-white">Torre Logística</h1>
-            <p className="text-slate-500 text-sm mt-1">Contabilidad, pagos y publicidad</p>
+          <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="font-display text-2xl font-bold text-white">Torre Logística</h1>
+              <p className="text-slate-500 text-sm mt-1">Contabilidad, pagos y publicidad</p>
+            </div>
+            <DateRangePicker value={rangeKey} onChange={(key,custom)=>{setRangeKey(key);setRangeCustom(custom||{});}}/>
           </div>
 
           {loading ? (
