@@ -87,13 +87,14 @@ export default function AdminDashboard() {
   const adsInRange = data.ads.filter(a => {
     if (!a.date) return false;
     const d = parseDateKey(a.date);
-    return d >= range.from && d <= range.to;
+    if (!d) return false;
+    return d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime();
   });
   const totalAdsRange = adsInRange.reduce((s, a) => s + a.amount, 0);
   const mPaidRange = active.reduce((sum, st) => {
     const pays = (st.payments || []).filter(p => {
       const d = parseDateKey(p.month);
-      return p.paid && d && d >= range.from && d <= range.to;
+      return p.paid && d && d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime();
     });
     return sum + pays.reduce((s, p) => s + p.amount, 0);
   }, 0);
