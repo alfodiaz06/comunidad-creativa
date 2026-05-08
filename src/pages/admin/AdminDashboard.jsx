@@ -4,7 +4,7 @@ import { getAllUsers, getAllCourses } from '../../lib/db';
 import { getAccounts, getStudents, getAds, statusAccount, money, month, fmt } from '../../lib/logistics';
 import AdminNav from '../../components/admin/AdminNav';
 import { Users, BookOpen, ChevronRight, TrendingUp, DollarSign, AlertCircle, Check } from 'lucide-react';
-import DateRangePicker, { getRange } from '../../components/shared/DateRangePicker';
+import DateRangePicker, { getRange, parseDateKey } from '../../components/shared/DateRangePicker';
 
 function KpiCard({ label, value, sub, color = 'brand', onClick }) {
   const colors = { brand: 'text-brand-400', jade: 'text-jade-400', amber: 'text-amber-400', red: 'text-red-400', slate: 'text-slate-300' };
@@ -86,14 +86,14 @@ export default function AdminDashboard() {
   const range = getRange(rangeKey, rangeCustom);
   const adsInRange = data.ads.filter(a => {
     if (!a.date) return false;
-    const d = new Date(a.date);
+    const d = parseDateKey(a.date);
     return d >= range.from && d <= range.to;
   });
   const totalAdsRange = adsInRange.reduce((s, a) => s + a.amount, 0);
   const mPaidRange = active.reduce((sum, st) => {
     const pays = (st.payments || []).filter(p => {
-      const d = new Date(p.month?.length === 7 ? p.month + '-01' : p.month || 0);
-      return p.paid && d >= range.from && d <= range.to;
+      const d = parseDateKey(p.month);
+      return p.paid && d && d >= range.from && d <= range.to;
     });
     return sum + pays.reduce((s, p) => s + p.amount, 0);
   }, 0);

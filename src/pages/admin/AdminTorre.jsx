@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import AdminNav from '../../components/admin/AdminNav';
 import { getAccounts, getStudents, getAds, saveAd, deleteAd, saveStudent, statusAccount, money, month, fmt, today } from '../../lib/logistics';
 import { Plus, Trash2, X, Check, Megaphone, AlertCircle, UserCheck } from 'lucide-react';
-import DateRangePicker, { getRange } from '../../components/shared/DateRangePicker';
+import DateRangePicker, { getRange, parseDateKey } from '../../components/shared/DateRangePicker';
 
 function AdModal({ onClose, onSave }) {
   const [form, setForm] = useState({ name:'', platform:'Facebook Ads', amount:'', date:today() });
@@ -82,8 +82,8 @@ export default function AdminTorre() {
   // Payments in selected range
   const mPaid = active.reduce((sum,st)=>{
     const pays = (st.payments||[]).filter(p => {
-      const d = new Date(p.month?.length===7 ? p.month+'-01' : p.month||0);
-      return p.paid && d >= range.from && d <= range.to;
+      const d = parseDateKey(p.month);
+      return p.paid && d && d >= range.from && d <= range.to;
     });
     return sum + pays.reduce((s,p)=>s+p.amount,0);
   },0);
@@ -99,7 +99,7 @@ export default function AdminTorre() {
   // Ads in selected range
   const totalAdsMonth = ads.filter(a=>{
     if(!a.date) return false;
-    const d = new Date(a.date);
+    const d = parseDateKey(a.date);
     return d >= range.from && d <= range.to;
   }).reduce((s,a)=>s+a.amount,0);
 

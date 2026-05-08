@@ -8,6 +8,13 @@ const PRESETS = [
   { key: 'custom',  label: 'Personalizado' },
 ];
 
+// Parse date string safely in local timezone (avoids UTC offset issues)
+function parseLocal(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function getRange(key, custom = {}) {
   const now = new Date(); now.setHours(23,59,59,999);
   const start = new Date(); start.setHours(0,0,0,0);
@@ -15,13 +22,26 @@ export function getRange(key, custom = {}) {
   if (key === '7d')  { start.setDate(start.getDate()-6); return { from: start, to: now }; }
   if (key === '30d') { start.setDate(start.getDate()-29); return { from: start, to: now }; }
   if (key === 'custom' && custom.from && custom.to) {
-    const f = new Date(custom.from); f.setHours(0,0,0,0);
-    const t = new Date(custom.to);   t.setHours(23,59,59,999);
+    const f = parseLocal(custom.from); f.setHours(0,0,0,0);
+    const t = parseLocal(custom.to);   t.setHours(23,59,59,999);
     return { from: f, to: t };
   }
-  // default 30d
   start.setDate(start.getDate()-29);
   return { from: start, to: now };
+}
+
+// Safe date parser for payment/ad keys (YYYY-MM-DD or YYYY-MM)
+export function parseDateKey(key) {
+  if (!key) return null;
+  if (key.length === 7) { // YYYY-MM
+    const [y, m] = key.split('-').map(Number);
+    return new Date(y, m - 1, 1);
+  }
+  if (key.length === 10) { // YYYY-MM-DD
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(key);
 }
 
 export default function DateRangePicker({ value, onChange }) {
