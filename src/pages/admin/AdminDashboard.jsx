@@ -50,7 +50,8 @@ export default function AdminDashboard() {
         }, 0);
         const totalHistoric = active.reduce((sum, st) =>
           sum + (st.payments || []).filter(p => p.paid).reduce((a, p) => a + p.amount, 0), 0);
-        const totalAdsMonth = ads.filter(a => a.date?.slice(0, 7) === m).reduce((s, a) => s + a.amount, 0);
+        const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+        const totalAdsMonth = ads.filter(a => a.date && new Date(a.date) >= thirtyDaysAgo).reduce((s, a) => s + a.amount, 0);
         setData({ users, courses, accounts, active, mPaid, mPending, totalHistoric, totalAdsMonth, ads });
       } finally { setLoading(false); }
     };
