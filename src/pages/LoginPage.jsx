@@ -51,7 +51,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-aurora-500/10 border border-aurora-500/20 mb-4">
             <BookOpen className="w-7 h-7 text-aurora-400" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-white tracking-tight">EduVault</h1>
+          <h1 className="font-display text-3xl font-bold text-white tracking-tight">Comunidad Creativa</h1>
           <p className="text-slate-500 text-sm mt-1 font-body">Plataforma de aprendizaje privada</p>
         </div>
 
