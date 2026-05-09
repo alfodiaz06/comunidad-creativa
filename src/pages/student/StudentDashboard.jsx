@@ -213,13 +213,14 @@ export default function StudentDashboard() {
                       {copiedField==='password' ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
                     </button>
                   </div>
-                  {/* Flow link */}
-                  <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2 rounded-lg bg-brand-500/10 border border-brand-500/20 hover:bg-brand-500/15 transition-colors">
-                    <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Accede a:</span>
-                    <span className="text-xs font-mono text-brand-300 flex-1">Flow ↗</span>
-                    <ExternalLink className="w-3 h-3 text-brand-400 flex-shrink-0"/>
-                  </a>
+                  {/* Rules */}
+                  <div className="mt-2 p-3 rounded-lg bg-obsidian-900 border border-white/5 space-y-1.5">
+                    <p className="text-xs font-mono text-brand-400 font-semibold mb-2">📋 Reglas de uso</p>
+                    <p className="text-xs font-body text-slate-400 leading-relaxed">• Crea un proyecto con tu nombre y trabaja desde ahí</p>
+                    <p className="text-xs font-body text-slate-400 leading-relaxed">• No cambiar contraseña ni borrar proyectos</p>
+                    <p className="text-xs font-body text-slate-400 leading-relaxed">• Para generación de video usa el generador <span className="text-slate-300 font-mono">Lower priority</span></p>
+                    <p className="text-xs font-body text-slate-400 leading-relaxed">• Tienes acceso a <span className="text-brand-300 font-mono font-semibold">5.000 créditos</span> — procura no consumir de más</p>
+                  </div>
                 </div>
               ) : (
                 <div className="text-xs text-slate-500 font-mono">Sin cuenta asignada</div>

@@ -5,6 +5,7 @@ const PRESETS = [
   { key: 'today',   label: 'Hoy' },
   { key: '7d',      label: 'Últimos 7 días' },
   { key: '30d',     label: 'Último mes' },
+  { key: 'all',     label: 'Máximo' },
   { key: 'custom',  label: 'Personalizado' },
 ];
 
@@ -21,6 +22,7 @@ export function getRange(key, custom = {}) {
   if (key === 'today') return { from: start, to: now };
   if (key === '7d')  { start.setDate(start.getDate()-6); return { from: start, to: now }; }
   if (key === '30d') { start.setDate(start.getDate()-29); return { from: start, to: now }; }
+  if (key === 'all') { start.setFullYear(2020, 0, 1); return { from: start, to: now }; }
   if (key === 'custom' && custom.from && custom.to) {
     const f = parseLocal(custom.from); f.setHours(0,0,0,0);
     const t = parseLocal(custom.to);   t.setHours(23,59,59,999);
