@@ -179,10 +179,10 @@ export default function AdminTorre() {
               {label:'Cuentas', val:accounts.filter(a=>statusAccount(a.expiresAt)!=='expired').length, color:'text-brand-400'},
               {label:"Ingresos", val:money(ingresos), color:'text-jade-400'},
               {label:"Pendiente", val:money(pendiente), color:'text-amber-400'},
-              {label:"Publicidad actual", val:money(totalAdsMonth), color:'text-red-400'},
-              {label:"Ganancia neta actual", val:money(netMonth), color:'text-jade-400'},
-              {label:'Total histórico', val:money(totalHistoric), color:'text-jade-400'},
-              {label:'Ganancia neta total', val:money(netTotal), color:'text-jade-400'},
+              {label:"Publicidad actual", val:money(publicidad), color:'text-red-400'},
+              {label:"Ganancia neta actual", val:money(gananciaNeta), color:'text-jade-400'},
+              {label:'Total histórico', val:money(totalHistorico), color:'text-jade-400'},
+              {label:'Ganancia neta total', val:money(gananciaTotalHistorica), color:'text-jade-400'},
             ].map(({label,val,color})=>(
               <div key={label} className="card p-3">
                 <div className="text-xs font-mono text-slate-500 mb-1 uppercase leading-tight">{label}</div>
@@ -280,7 +280,7 @@ export default function AdminTorre() {
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
                   {label:'Total invertido', val:money(totalAdsAll), color:'text-red-400'},
-                  {label:'Este mes', val:money(totalAdsMonth), color:'text-amber-400'},
+                  {label:'Este mes', val:money(publicidad), color:'text-amber-400'},
                   {label:'Últimos 7 días', val:money(ads.filter(a=>{const d=new Date(a.date||'');return(new Date()-d)/86400000<=7;}).reduce((s,a)=>s+a.amount,0)), color:'text-amber-400'},
                   {label:'Registros', val:ads.length, color:'text-slate-300'},
                 ].map(({label,val,color})=>(
