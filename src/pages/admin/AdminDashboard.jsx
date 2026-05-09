@@ -76,6 +76,7 @@ export default function AdminDashboard() {
   );
 
   const { users, courses, accounts, active, mPaid, mPending, totalHistoric, totalAdsMonth, ads } = data;
+  const activeAccounts = accounts.filter(a => statusAccount(a.expiresAt) !== 'expired');
 
   const getCurrentPaySimple = (st) => {
     const pays = st.payments || [];
