@@ -140,16 +140,15 @@ export default function AdminTorre() {
   };
 
   const filteredStudents = active.filter(s=>{
-    if(filter==='paid'){ const p=getCurrentPay(s); return p?.paid||false; }
-    if(filter==='pending'){ const p=getCurrentPay(s); return !p?.paid; }
+    if(filter==='paid'){ return getLatestPay(s)?.paid||false; }
+    if(filter==='pending'){ return !getLatestPay(s)?.paid; }
     return true;
   });
 
-
   const handleTogglePay = async (st) => {
     const pays=[...(st.payments||[])];
-    const currentPay = getCurrentPay(st);
-    const periodKey = currentPay?.month || st.expiresAt || m;
+    const currentPay = getLatestPay(st);
+    const periodKey = currentPay?.month || st.startDate || today();
     const idx = pays.findIndex(p=>p.month===periodKey);
     if(idx>=0){pays[idx]={...pays[idx],paid:!pays[idx].paid};}
     else{pays.push({month:periodKey,paid:true,amount:pays.length===0?80000:60000});}
@@ -326,8 +325,8 @@ export default function AdminTorre() {
                 <tbody className="divide-y divide-white/5">
                   {filteredStudents.map(st=>{
                     const acc=accounts.find(a=>a.id===st.accountId);
-                    const pay=getCurrentPay(st);
-                    const amt=pay?.amount||((st.payments||[]).length>1?60000:80000);
+                    const pay=getLatestPay(st);
+                    const amt=pay?.amount||((st.payments||[]).length>0?60000:80000);
                     return (
                       <tr key={st.id} className="hover:bg-white/2 transition-colors">
                         <td className="px-4 py-3 font-display text-sm text-slate-200">{st.name}</td>
