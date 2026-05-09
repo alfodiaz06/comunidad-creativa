@@ -1,4 +1,3 @@
-import NotificationChat from '../../components/shared/NotificationChat';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -312,7 +311,6 @@ export default function CoursePage() {
           ))}
         </div>
       </div>
-      <NotificationChat/>
     </div>
   );
 }
