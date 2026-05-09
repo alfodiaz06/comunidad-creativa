@@ -75,7 +75,7 @@ export default function AdminDashboard() {
     </div>
   );
 
-  const { users, courses, accounts, active, mPaid, mPending, totalHistoric, totalAdsMonth } = data;
+  const { users, courses, accounts, active, mPaid, mPending, totalHistoric, totalAdsMonth, ads } = data;
 
   const getCurrentPaySimple = (st) => {
     const pays = st.payments || [];
