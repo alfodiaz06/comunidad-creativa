@@ -279,7 +279,7 @@ export default function AdminTorre() {
               <h3 className="font-display font-semibold text-white text-sm mb-4">📊 Resumen publicitario</h3>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 {[
-                  {label:'Total invertido', val:money(totalAdsAll), color:'text-red-400'},
+                  {label:'Total invertido', val:money(publicidadTotal), color:'text-red-400'},
                   {label:'Este mes', val:money(publicidad), color:'text-amber-400'},
                   {label:'Últimos 7 días', val:money(ads.filter(a=>{const d=new Date(a.date||'');return(new Date()-d)/86400000<=7;}).reduce((s,a)=>s+a.amount,0)), color:'text-amber-400'},
                   {label:'Registros', val:ads.length, color:'text-slate-300'},
