@@ -66,47 +66,56 @@ export default function AdminTorre() {
   useEffect(() => { load(); }, [load]);
 
   const active = students.filter(s=>!s.deletedAt);
-  // Find current period payment for each student (most recent, based on expiresAt cycle)
-  const getCurrentPay = (st) => {
-    const pays = st.payments||[];
-    if(pays.length===0) return null;
-    return [...pays].sort((a,b)=>{
-      const da = new Date(a.month?.length===7 ? a.month+'-01' : a.month||0);
-      const db = new Date(b.month?.length===7 ? b.month+'-01' : b.month||0);
-      return db-da;
-    })[0];
-  };
 
+  // ── CORE CALCULATION ENGINE ──
   const range = getRange(rangeKey, rangeCustom);
 
-  // Payments in selected range
-  const mPaid = active.reduce((sum,st)=>{
-    const pays = (st.payments||[]).filter(p => {
-      const d = parseDateKey(p.month);
-      return p.paid && d && d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime();
-    });
-    return sum + pays.reduce((s,p)=>s+p.amount,0);
-  },0);
+  const parseKey = (key) => {
+    if (!key) return null;
+    if (key.length === 7) { const [y,m] = key.split('-').map(Number); return new Date(y, m-1, 1); }
+    if (key.length === 10) { const [y,m,d] = key.split('-').map(Number); return new Date(y, m-1, d); }
+    return null;
+  };
 
-  const mPending = active.reduce((sum,st)=>{
-    const pays=st.payments||[];
-    const p=getCurrentPay(st);
-    if(p?.paid) return sum;
-    return sum+(p?.amount||(pays.length>1?60000:80000));
-  },0);
-
-  const totalAdsAll = ads.reduce((s,a)=>s+a.amount,0);
-  // Ads in selected range
-  const totalAdsMonth = ads.filter(a=>{
-    if(!a.date) return false;
-    const d = parseDateKey(a.date);
-    if(!d) return false;
+  const inRange = (dateKey) => {
+    const d = parseKey(dateKey);
+    if (!d) return false;
     return d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime();
-  }).reduce((s,a)=>s+a.amount,0);
+  };
 
-  const totalHistoric = active.reduce((sum,st)=>sum+(st.payments||[]).filter(p=>p.paid).reduce((a,p)=>a+p.amount,0),0);
-  const netMonth = mPaid - totalAdsMonth;
-  const netTotal = totalHistoric - totalAdsAll;
+  const getLatestPay = (st) => {
+    const pays = [...(st.payments||[])].sort((a,b)=>{
+      const da = parseKey(a.month)||new Date(0);
+      const db = parseKey(b.month)||new Date(0);
+      return db-da;
+    });
+    return pays[0]||null;
+  };
+
+  // Ingresos = pagos pagados dentro del rango
+  const ingresos = active.reduce((sum,st)=>
+    sum+(st.payments||[]).filter(p=>p.paid&&inRange(p.month)).reduce((s,p)=>s+(p.amount||0),0),0);
+
+  // Pendiente = estudiantes cuyo último pago no está pagado
+  const pendingStudents = active.filter(st=>!getLatestPay(st)?.paid);
+  const pendiente = pendingStudents.reduce((sum,st)=>{
+    const p=getLatestPay(st);
+    const pays=st.payments||[];
+    return sum+(p?.amount||(pays.length>0?60000:80000));
+  },0);
+
+  // Publicidad dentro del rango
+  const publicidad = ads.filter(a=>inRange(a.date)).reduce((s,a)=>s+(a.amount||0),0);
+
+  // Históricos (siempre todo)
+  const totalHistorico = active.reduce((sum,st)=>
+    sum+(st.payments||[]).filter(p=>p.paid).reduce((s,p)=>s+(p.amount||0),0),0);
+  const publicidadTotal = ads.reduce((s,a)=>s+(a.amount||0),0);
+
+  // Ganancias
+  const gananciaNeta = ingresos - publicidad;
+  const gananciaTotalHistorica = totalHistorico - publicidadTotal;
+
   const adsByPlatform = ads.reduce((acc,a)=>{acc[a.platform]=(acc[a.platform]||0)+a.amount;return acc;},{});
 
   // Stats by admin
@@ -168,8 +177,8 @@ export default function AdminTorre() {
             {[
               {label:'Activos', val:active.length, color:'text-jade-400'},
               {label:'Cuentas', val:accounts.filter(a=>statusAccount(a.expiresAt)!=='expired').length, color:'text-brand-400'},
-              {label:"Ingresos actuales", val:money(mPaid), color:'text-jade-400'},
-              {label:"Pendiente actual", val:money(mPending), color:'text-amber-400'},
+              {label:"Ingresos", val:money(ingresos), color:'text-jade-400'},
+              {label:"Pendiente", val:money(pendiente), color:'text-amber-400'},
               {label:"Publicidad actual", val:money(totalAdsMonth), color:'text-red-400'},
               {label:"Ganancia neta actual", val:money(netMonth), color:'text-jade-400'},
               {label:'Total histórico', val:money(totalHistoric), color:'text-jade-400'},

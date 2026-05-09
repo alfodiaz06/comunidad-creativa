@@ -83,30 +83,56 @@ export default function AdminDashboard() {
     return [...pays].sort((a,b) => new Date(b.month?.length===7?b.month+'-01':b.month||0) - new Date(a.month?.length===7?a.month+'-01':a.month||0))[0];
   };
 
+
+  // ── CORE CALCULATION ENGINE ──
   const range = getRange(rangeKey, rangeCustom);
-  const adsInRange = data.ads.filter(a => {
-    if (!a.date) return false;
-    const d = parseDateKey(a.date);
+
+  const parseKey = (key) => {
+    if (!key) return null;
+    if (key.length === 7) { const [y,m] = key.split('-').map(Number); return new Date(y, m-1, 1); }
+    if (key.length === 10) { const [y,m,d] = key.split('-').map(Number); return new Date(y, m-1, d); }
+    return null;
+  };
+
+  const inRange = (dateKey) => {
+    const d = parseKey(dateKey);
     if (!d) return false;
     return d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime();
-  });
-  const totalAdsRange = adsInRange.reduce((s, a) => s + a.amount, 0);
-  const mPaidRange = active.reduce((sum, st) => {
-    const pays = (st.payments || []).filter(p => {
-      const d = parseDateKey(p.month);
-      return p.paid && d && d.getTime() >= range.from.getTime() && d.getTime() <= range.to.getTime();
+  };
+
+  const getLatestPay = (st) => {
+    const pays = [...(st.payments||[])].sort((a,b)=>{
+      const da = parseKey(a.month)||new Date(0);
+      const db = parseKey(b.month)||new Date(0);
+      return db-da;
     });
-    return sum + pays.reduce((s, p) => s + p.amount, 0);
-  }, 0);
-  const mPendingRange = active.reduce((sum, st) => {
-    const pays = st.payments || [];
-    const p = getCurrentPaySimple(st);
-    if (p?.paid) return sum;
-    return sum + (p?.amount || (pays.length > 1 ? 60000 : 80000));
-  }, 0);
-  const netMonth = mPaidRange - totalAdsRange;
-  const activeAccounts = accounts.filter(a => statusAccount(a.expiresAt) !== 'expired');
-  const pendingStudents = active.filter(s => !getCurrentPaySimple(s)?.paid);
+    return pays[0]||null;
+  };
+
+  // Ingresos = pagos pagados dentro del rango
+  const ingresos = active.reduce((sum,st)=>
+    sum+(st.payments||[]).filter(p=>p.paid&&inRange(p.month)).reduce((s,p)=>s+(p.amount||0),0),0);
+
+  // Pendiente = estudiantes cuyo último pago no está pagado
+  const pendingStudents = active.filter(st=>!getLatestPay(st)?.paid);
+  const pendiente = pendingStudents.reduce((sum,st)=>{
+    const p=getLatestPay(st);
+    const pays=st.payments||[];
+    return sum+(p?.amount||(pays.length>0?60000:80000));
+  },0);
+
+  // Publicidad dentro del rango
+  const publicidad = ads.filter(a=>inRange(a.date)).reduce((s,a)=>s+(a.amount||0),0);
+
+  // Históricos (siempre todo)
+  const totalHistorico = active.reduce((sum,st)=>
+    sum+(st.payments||[]).filter(p=>p.paid).reduce((s,p)=>s+(p.amount||0),0),0);
+  const publicidadTotal = ads.reduce((s,a)=>s+(a.amount||0),0);
+
+  // Ganancias
+  const gananciaNeta = ingresos - publicidad;
+  const gananciaTotalHistorica = totalHistorico - publicidadTotal;
+
 
   return (
     <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
@@ -126,9 +152,9 @@ export default function AdminDashboard() {
             <KpiCard label="Personas registradas" value={active.length} sub={`${users.length} con acceso`} color="brand" />
             <KpiCard label="Cuentas activas" value={activeAccounts.length} sub={`${accounts.filter(a=>statusAccount(a.expiresAt)==='expired').length} vencidas`} color="jade" />
             <KpiCard label="Cursos" value={courses.length} color="slate" />
-            <KpiCard label="Ingresos" value={money(mPaidRange)} sub="período seleccionado" color="jade" />
-            <KpiCard label="Pendiente actual" value={money(mPendingRange)} sub={`${pendingStudents.length} personas`} color="amber" />
-            <KpiCard label="Ganancia neta" value={money(netMonth)} sub="ingresos - publicidad" color="jade" />
+            <KpiCard label="Ingresos" value={money(ingresos)} sub="período seleccionado" color="jade" />
+            <KpiCard label="Pendiente actual" value={money(pendiente)} sub={`${pendingStudents.length} persona${pendingStudents.length!==1?'s':''}`} color="amber" />
+            <KpiCard label="Ganancia neta" value={money(gananciaNeta)} sub="ingresos - publicidad" color="jade" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
