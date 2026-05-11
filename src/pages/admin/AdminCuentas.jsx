@@ -7,6 +7,66 @@ import { apiCreateUser, apiUpdatePassword } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Pencil, Trash2, X, Check, Eye, EyeOff, Copy, RefreshCw, ChevronLeft, Lock, Unlock, AlertCircle, Calendar } from 'lucide-react';
 
+// ── Label colors
+const LABEL_COLORS = [
+  { key: 'green',  bg: 'bg-emerald-500/20', text: 'text-emerald-300', border: 'border-emerald-500/30', dot: 'bg-emerald-400', name: 'Verde' },
+  { key: 'blue',   bg: 'bg-blue-500/20',    text: 'text-blue-300',    border: 'border-blue-500/30',    dot: 'bg-blue-400',    name: 'Azul' },
+  { key: 'purple', bg: 'bg-purple-500/20',  text: 'text-purple-300',  border: 'border-purple-500/30',  dot: 'bg-purple-400',  name: 'Morado' },
+  { key: 'amber',  bg: 'bg-amber-500/20',   text: 'text-amber-300',   border: 'border-amber-500/30',   dot: 'bg-amber-400',   name: 'Amarillo' },
+  { key: 'pink',   bg: 'bg-pink-500/20',    text: 'text-pink-300',    border: 'border-pink-500/30',    dot: 'bg-pink-400',    name: 'Rosa' },
+];
+
+function LabelPicker({ labels = [], onChange }) {
+  const [open, setOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [color, setColor] = useState('green');
+
+  const addLabel = () => {
+    if (!newLabel.trim()) return;
+    onChange([...labels, { text: newLabel.trim(), color }]);
+    setNewLabel('');
+    setOpen(false);
+  };
+
+  const removeLabel = (idx) => onChange(labels.filter((_,i) => i !== idx));
+
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center" onClick={e=>e.stopPropagation()}>
+      {labels.map((l, idx) => {
+        const c = LABEL_COLORS.find(x=>x.key===l.color) || LABEL_COLORS[0];
+        return (
+          <span key={idx} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono font-medium border ${c.bg} ${c.text} ${c.border} group/label`}>
+            {l.text}
+            <button onClick={()=>removeLabel(idx)} className="opacity-0 group-hover/label:opacity-100 transition-opacity ml-0.5 hover:text-white">×</button>
+          </span>
+        );
+      })}
+      <div className="relative">
+        <button onClick={()=>setOpen(o=>!o)}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono text-slate-500 border border-white/10 hover:border-white/20 hover:text-slate-300 transition-all">
+          + Etiqueta
+        </button>
+        {open && (
+          <div className="absolute left-0 top-7 z-50 w-52 glass-strong rounded-xl border border-white/10 shadow-xl p-3 space-y-2">
+            <input className="input-field py-1.5 text-xs" placeholder="Nombre etiqueta..." value={newLabel}
+              onChange={e=>setNewLabel(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addLabel()} autoFocus/>
+            <div className="flex gap-1.5">
+              {LABEL_COLORS.map(c=>(
+                <button key={c.key} onClick={()=>setColor(c.key)}
+                  className={`w-5 h-5 rounded-full ${c.dot} transition-all ${color===c.key?'ring-2 ring-white/60 scale-110':''}`}/>
+              ))}
+            </div>
+            <button onClick={addLabel} disabled={!newLabel.trim()}
+              className="w-full btn-primary py-1.5 text-xs disabled:opacity-40">
+              Agregar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({ exp }) {
   const st = statusAccount(exp);
   const map = { active:'bg-jade-500/15 text-jade-400 border-jade-500/20', expiring:'bg-amber-500/15 text-amber-400 border-amber-500/20', expired:'bg-red-500/15 text-red-400 border-red-500/20' };
@@ -343,6 +403,14 @@ export default function AdminCuentas() {
                         </div>
                         <div className="font-mono text-white text-sm font-semibold mb-2 truncate">{acc.email}</div>
                         <StatusBadge exp={acc.expiresAt}/>
+                        {acc.labels?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2" onClick={e=>e.stopPropagation()}>
+                            {acc.labels.map((l,i) => {
+                              const c = LABEL_COLORS.find(x=>x.key===l.color)||LABEL_COLORS[0];
+                              return <span key={i} className={`px-2 py-0.5 rounded-full text-xs font-mono border ${c.bg} ${c.text} ${c.border}`}>{l.text}</span>;
+                            })}
+                          </div>
+                        )}
                         <div className="mt-3 text-xs font-mono text-slate-500">📅 {fmt(acc.createdAt)} · Vence {fmt(acc.expiresAt)}</div>
                         <div className="mt-2">
                           <div className="flex justify-between text-xs font-mono text-slate-500 mb-1"><span>{occupied}/5 slots{acc.blocked?' · 🔒 Bloqueada':''}</span></div>
@@ -364,6 +432,14 @@ export default function AdminCuentas() {
                   <div className={`w-3 h-3 rounded-full ${statusAccount(currentAcc.expiresAt)==='active'?'bg-jade-400':statusAccount(currentAcc.expiresAt)==='expiring'?'bg-amber-400':'bg-red-400'}`}/>
                   <h2 className="font-mono text-xl font-bold text-white">{currentAcc.email}</h2>
                   <StatusBadge exp={currentAcc.expiresAt}/>
+            <LabelPicker
+              labels={currentAcc.labels||[]}
+              onChange={async (labels) => {
+                const updated = {...currentAcc, labels};
+                await saveAccount(updated);
+                await load();
+              }}
+            />
                   {currentAcc.blocked&&<span className="text-xs font-mono bg-amber-500/15 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1"><Lock className="w-3 h-3"/>Bloqueada</span>}
                 </div>
                 <div className="flex gap-2 flex-wrap">
