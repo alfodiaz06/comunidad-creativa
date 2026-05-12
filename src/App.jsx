@@ -11,6 +11,7 @@ import AdminTorre from './pages/admin/AdminTorre';
 import AdminPapelera from './pages/admin/AdminPapelera';
 import AdminResources from './pages/admin/AdminResources';
 import AdminCourseEditor from './pages/admin/AdminCourseEditor';
+import AdminDebug from './pages/admin/AdminDebug';
 import ResourcesPage from './pages/student/ResourcesPage';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import AdminRoute from './components/shared/AdminRoute';
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/admin/resources" element={<AdminResources/>}/>
         <Route path="/admin/courses" element={<AdminCourses/>}/>
         <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEditor/>}/>
+        <Route path="/admin/debug" element={<AdminDebug/>}/>
       </Route>
       <Route path="/" element={<Navigate to="/dashboard" replace/>}/>
       <Route path="*" element={<Navigate to="/dashboard" replace/>}/>
