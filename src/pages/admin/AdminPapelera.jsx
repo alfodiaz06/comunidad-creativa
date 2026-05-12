@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AdminNav from '../../components/admin/AdminNav';
 import { getStudents, saveStudent, deleteStudent, getAccounts, assignStudentToAccount, fmt, today, add30 } from '../../lib/logistics';
 import { apiDeleteUserByEmail } from '../../lib/api';
+import { getUserAssignedCourses, removeCourseFromUser } from '../../lib/db';
 import { Trash2, RotateCcw, AlertCircle, User } from 'lucide-react';
 
 export default function AdminPapelera() {
@@ -31,13 +32,18 @@ export default function AdminPapelera() {
     if (!confirm(`¿Eliminar permanentemente a "${st.name}"?\n\nEsto eliminará su acceso a la plataforma. Esta acción es irreversible.`)) return;
     setDeleting(st.id);
     try {
-      // Delete from Firebase Auth by email or uid
+      // Delete from Firebase Auth
       if (st.email || st.uid) {
-        try {
-          await apiDeleteUserByEmail(st.uid, st.email);
-        } catch(e) { console.warn('Auth delete:', e.message); }
+        try { await apiDeleteUserByEmail(st.uid, st.email); } catch(e) { console.warn('Auth delete:', e.message); }
       }
-      // Delete from RTDB
+      // Remove all Firestore course assignments
+      if (st.uid) {
+        try {
+          const courses = await getUserAssignedCourses(st.uid);
+          await Promise.all(courses.map(id => removeCourseFromUser(st.uid, id)));
+        } catch(e) { console.warn('Course cleanup:', e.message); }
+      }
+      // Delete from RTDB completely
       await deleteStudent(st.id);
       await load();
     } finally { setDeleting(null); }

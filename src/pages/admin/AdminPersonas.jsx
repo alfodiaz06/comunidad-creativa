@@ -590,8 +590,14 @@ export default function AdminPersonas() {
   const handleDelete = async (person) => {
     if(!confirm(`¿Mover a "${person.displayName}" a la papelera?`)) return;
     const st=students.find(s=>s.id===person.studentId); if(!st) return;
+    // Remove from account slot
     await removeStudentFromAccount(accounts,st.id);
-    await saveStudent({...st,deletedAt:new Date().toISOString(),accountId:null});
+    // Disable in Firestore so login is immediately blocked
+    if(st.uid) {
+      try { await updateUserProfile(st.uid, { disabled: true }); } catch(e) {}
+    }
+    // Mark as deleted with no account
+    await saveStudent({...st, deletedAt:new Date().toISOString(), accountId:null, disabled:true});
     await load();
   };
 

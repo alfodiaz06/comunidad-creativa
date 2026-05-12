@@ -21,8 +21,9 @@ export default function NotificationChat() {
     const findAccount = async () => {
       try {
         const students = await getStudents();
-        let me = students.find(s => s.uid === user.uid);
-        if (!me) me = students.find(s => s.email?.toLowerCase() === user.email?.toLowerCase() && !s.deletedAt);
+        const activeStudents = students.filter(s => !s.deletedAt);
+        let me = activeStudents.find(s => s.uid === user.uid);
+        if (!me) me = activeStudents.find(s => s.email?.toLowerCase() === user.email?.toLowerCase());
         if (me?.accountId) setAccountId(me.accountId);
       } catch(e) { console.error(e); }
     };
