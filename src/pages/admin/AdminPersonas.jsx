@@ -546,8 +546,23 @@ export default function AdminPersonas() {
       if (uid_firebase && courseIds.length > 0) {
         try {
           await Promise.all(courseIds.map(id => assignCourseToUser(uid_firebase, id)));
-          console.log('Courses assigned:', courseIds);
         } catch(e) { console.error('Course assignment failed:', e.message); }
+      }
+
+      // Notify with account credentials if assigned to an account
+      if (form.accountId) {
+        const account = accounts.find(a => a.id === form.accountId);
+        if (account) {
+          try {
+            await notifyAccount(form.accountId, {
+              type: 'credentials',
+              title: '🔐 Datos de acceso a tu cuenta',
+              message: `Bienvenido/a ${form.displayName}. Aquí están tus credenciales de acceso.`,
+              email: account.email || '',
+              password: account.password || '',
+            });
+          } catch(e) { console.warn('Notify:', e.message); }
+        }
       }
     }
     await load();

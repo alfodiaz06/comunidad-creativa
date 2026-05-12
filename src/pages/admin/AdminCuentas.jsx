@@ -563,6 +563,19 @@ export default function AdminCuentas() {
               try { await Promise.all(courseIds.map(id=>assignCourseToUser(uid_firebase, id))); }
               catch(e) { console.warn('Courses:', e.message); }
             }
+            // Notify new student with account credentials immediately
+            const account = accounts.find(a => a.id === modal.accountId);
+            if (account) {
+              try {
+                await notifyAccount(modal.accountId, {
+                  type: 'credentials',
+                  title: '🔐 Datos de acceso a tu cuenta',
+                  message: `Bienvenido/a ${form.name}. Aquí están tus credenciales de acceso.`,
+                  email: account.email || '',
+                  password: account.password || '',
+                });
+              } catch(e) { console.warn('Notify:', e.message); }
+            }
             await load();
             setModal(null);
           }}
