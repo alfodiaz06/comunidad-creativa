@@ -56,24 +56,49 @@ export default function StudentDashboard() {
   const [copiedField, setCopiedField] = useState(null);
   const pollRef = useRef(null);
 
-  // Load account credentials and poll every 30s for updates
-  const loadAccount = async () => {
+  // Master sync — runs on load and every 30s
+  const syncAll = async () => {
     if (!user) return;
     try {
       const students = await getStudents();
-      const me = students.find(s => s.uid === user.uid) ||
-                 students.find(s => s.email?.toLowerCase() === user.email?.toLowerCase() && !s.deletedAt);
-      if (me?.accountId) {
+      // Find by uid first, then by email (active only)
+      let me = students.find(s => s.uid === user.uid && !s.deletedAt);
+      if (!me) me = students.find(s => s.email?.toLowerCase() === user.email?.toLowerCase() && !s.deletedAt);
+      if (!me) return;
+
+      // Fix uid if missing or wrong
+      if (!me.uid || me.uid !== user.uid) {
+        await saveStudent({ ...me, uid: user.uid });
+        me = { ...me, uid: user.uid };
+      }
+
+      // Load account credentials
+      if (me.accountId) {
         const accounts = await getAccounts();
         const acc = accounts.find(a => a.id === me.accountId);
         if (acc) setAccount(acc);
+      } else {
+        setAccount(null);
       }
-    } catch(e) { console.error(e); }
+
+      // Sync missing courses to Firestore
+      if (me.courseIds?.length > 0) {
+        const assigned = await getUserAssignedCourses(user.uid);
+        const missing = me.courseIds.filter(id => !assigned.includes(id));
+        if (missing.length > 0) {
+          await Promise.all(missing.map(id => assignCourseToUser(user.uid, id)));
+          // Reload courses after sync
+          const updatedIds = await getUserAssignedCourses(user.uid);
+          const updatedData = await Promise.all(updatedIds.map(id => getCourse(id)));
+          setCourses(updatedData.filter(Boolean).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
+        }
+      }
+    } catch(e) { console.error('syncAll:', e); }
   };
 
   useEffect(() => {
-    loadAccount();
-    pollRef.current = setInterval(loadAccount, 30000);
+    syncAll();
+    pollRef.current = setInterval(syncAll, 30000);
     return () => clearInterval(pollRef.current);
   }, [user]);
 

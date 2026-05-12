@@ -17,18 +17,20 @@ export function AuthProvider({ children }) {
   const syncOnLogin = async (firebaseUser) => {
     try {
       const students = await getStudents();
+      // Only active students
+      const active = students.filter(s => !s.deletedAt);
 
       // Find student by uid OR by email
-      let student = students.find(s => s.uid === firebaseUser.uid);
+      let student = active.find(s => s.uid === firebaseUser.uid);
       if (!student) {
-        student = students.find(s =>
-          s.email?.toLowerCase() === firebaseUser.email?.toLowerCase() && !s.deletedAt
+        student = active.find(s =>
+          s.email?.toLowerCase() === firebaseUser.email?.toLowerCase()
         );
       }
 
       if (!student) return;
 
-      // If student found by email but uid not saved → save uid now
+      // Always update uid to current Firebase uid
       if (!student.uid || student.uid !== firebaseUser.uid) {
         await saveStudent({ ...student, uid: firebaseUser.uid });
         student = { ...student, uid: firebaseUser.uid };
