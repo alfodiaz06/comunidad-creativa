@@ -410,6 +410,8 @@ export default function AdminPersonas() {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [pageSize, setPageSize] = useState(20);
+  const [sortOrder, setSortOrder] = useState('newest');
   const [payModal, setPayModal] = useState(null);
   const m = month();
 
@@ -463,7 +465,13 @@ export default function AdminPersonas() {
     if(filter==='paid') return p.paid;
     if(filter==='pending') return !p.paid;
     return true;
+  }).sort((a,b)=>{
+    const da = new Date(a.startDate||a.addedAt||0);
+    const db = new Date(b.startDate||b.addedAt||0);
+    return sortOrder==='newest' ? db-da : da-db;
   });
+
+  const paginated = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
 
   const handleSave = async (existing, form, courseIds, password) => {
     if(existing){
@@ -521,11 +529,21 @@ export default function AdminPersonas() {
       }
     } else {
       let uid_firebase = null;
+
+      // Clean up any old deleted records with the same email to avoid interference
+      const oldRecords = students.filter(s =>
+        s.deletedAt &&
+        s.email?.toLowerCase() === form.email?.toLowerCase()
+      );
+      if (oldRecords.length > 0) {
+        await Promise.all(oldRecords.map(old => deleteStudent(old.id)));
+        console.log('Cleaned old records:', oldRecords.length);
+      }
+
       if (form.email) {
         try {
           const result = await apiCreateUser({email:form.email, password, displayName:form.displayName, role:form.role});
           uid_firebase = result.uid;
-          console.log('Created user uid:', uid_firebase);
         } catch(e) { console.error('Auth creation failed:', e.message); }
       }
 
@@ -641,6 +659,25 @@ export default function AdminPersonas() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"/>
               <input className="input-field pl-11" placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)}/>
             </div>
+            {/* Sort */}
+            <select value={sortOrder} onChange={e=>setSortOrder(e.target.value)}
+              className="input-field py-1.5 text-xs w-auto pr-8 cursor-pointer">
+              <option value="newest">Más recientes</option>
+              <option value="oldest">Más antiguos</option>
+            </select>
+            {/* Page size */}
+            <select value={pageSize} onChange={e=>setPageSize(e.target.value==='all'?'all':parseInt(e.target.value))}
+              className="input-field py-1.5 text-xs w-auto pr-8 cursor-pointer">
+              <option value={20}>Ver 20</option>
+              <option value={50}>Ver 50</option>
+              <option value={100}>Ver 100</option>
+              <option value="all">Ver todas</option>
+            </select>
+            {pageSize!=='all' && filtered.length>pageSize && (
+              <span className="text-xs font-mono text-slate-500">
+                Mostrando {pageSize} de {filtered.length}
+              </span>
+            )}
           </div>
           {loading?(
             <div className="flex items-center justify-center h-48"><div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin"/></div>
@@ -654,7 +691,7 @@ export default function AdminPersonas() {
                     ))}
                   </tr></thead>
                   <tbody className="divide-y divide-white/5">
-                    {filtered.map(p=>(
+                    {paginated.map(p=>(
                       <tr key={p.studentId} className={`hover:bg-white/2 transition-colors ${p.disabled?'opacity-60':''}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
