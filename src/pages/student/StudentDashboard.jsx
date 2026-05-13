@@ -48,6 +48,41 @@ function CourseCard({ course, completedLessons, totalLessons }) {
   );
 }
 
+// Payment methods per admin
+const PAYMENT_METHODS = {
+  'Alfonso': {
+    name: 'Alfonso',
+    methods: [
+      { icon: '🔑', label: 'Nequi / Daviplata', value: '3144444958', copyKey: 'nequi' },
+      { icon: '🏦', label: 'Bancolombia — Alfonso Díaz', sub: 'Cuenta de ahorros', value: '912-777594-09', copyKey: 'banco' },
+    ]
+  },
+  'Leonardo': {
+    name: 'Leonardo',
+    methods: [
+      { icon: '🔑', label: 'Nequi o Bre-B', value: '3104841895', copyKey: 'nequi2' },
+      { icon: '👤', label: 'José Leonardo Orrego', value: null, copyKey: null },
+    ]
+  },
+};
+
+// Default fallback
+const DEFAULT_PAYMENT = {
+  name: 'tu administrador',
+  methods: [
+    { icon: '🔑', label: 'Nequi / Daviplata', value: '3144444958', copyKey: 'nequi' },
+    { icon: '🏦', label: 'Bancolombia — Alfonso Díaz', sub: 'Cuenta de ahorros', value: '912-777594-09', copyKey: 'banco' },
+  ]
+};
+
+function getPaymentInfo(addedBy) {
+  if (!addedBy) return DEFAULT_PAYMENT;
+  const key = Object.keys(PAYMENT_METHODS).find(k =>
+    addedBy.toLowerCase().includes(k.toLowerCase())
+  );
+  return key ? PAYMENT_METHODS[key] : DEFAULT_PAYMENT;
+}
+
 export default function StudentDashboard() {
   const { user, profile } = useAuth();
   const [courses, setCourses] = useState([]);
@@ -250,32 +285,32 @@ export default function StudentDashboard() {
                         </div>
                         <div className="p-3 rounded-xl bg-obsidian-900 border border-white/5 space-y-2">
                           <p className="text-xs font-mono font-semibold text-brand-400">💳 Para renovar paga $60.000</p>
-                          <div className="space-y-1.5 mt-2">
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs">🔑</span>
-                              <div>
-                                <p className="text-xs font-mono text-slate-300 font-semibold">Nequi / Daviplata</p>
-                                <p className="text-xs font-mono text-brand-300">3144444958</p>
+                          {(() => {
+                            const payInfo = getPaymentInfo(studentData?.addedBy);
+                            return (
+                              <div className="space-y-1.5 mt-2">
+                                {payInfo.methods.map((m, i) => (
+                                  <div key={i} className="flex items-start gap-2">
+                                    <span className="text-xs">{m.icon}</span>
+                                    <div>
+                                      <p className="text-xs font-mono text-slate-300 font-semibold">{m.label}</p>
+                                      {m.sub && <p className="text-xs font-mono text-slate-400">{m.sub}</p>}
+                                      {m.value && <p className="text-xs font-mono text-brand-300">{m.value}</p>}
+                                    </div>
+                                    {m.value && m.copyKey && (
+                                      <button onClick={() => copyField(m.value, m.copyKey)}
+                                        className={`ml-auto p-1 rounded ${copiedField===m.copyKey?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                                        {copiedField===m.copyKey?<Check className="w-3 h-3"/>:<Copy className="w-3 h-3"/>}
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
-                              <button onClick={() => copyField('3144444958', 'nequi')}
-                                className={`ml-auto p-1 rounded ${copiedField==='nequi'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
-                                {copiedField==='nequi'?<Check className="w-3 h-3"/>:<Copy className="w-3 h-3"/>}
-                              </button>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span className="text-xs">🏦</span>
-                              <div>
-                                <p className="text-xs font-mono text-slate-300 font-semibold">Bancolombia — Alfonso Díaz</p>
-                                <p className="text-xs font-mono text-slate-400">Cuenta de ahorros</p>
-                                <p className="text-xs font-mono text-brand-300">912-777594-09</p>
-                              </div>
-                              <button onClick={() => copyField('912-777594-09', 'banco')}
-                                className={`ml-auto p-1 rounded ${copiedField==='banco'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
-                                {copiedField==='banco'?<Check className="w-3 h-3"/>:<Copy className="w-3 h-3"/>}
-                              </button>
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-500 mt-2">Envía el comprobante a tu administrador para activar la renovación.</p>
+                            );
+                          })()}
+                          <p className="text-xs text-slate-500 mt-2">
+                            Envía el comprobante a tu administrador <span className="text-slate-300 font-semibold">{getPaymentInfo(studentData?.addedBy).name}</span> para activar la renovación.
+                          </p>
                         </div>
                       </div>
                     ) : account ? (
