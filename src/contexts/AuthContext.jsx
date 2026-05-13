@@ -73,8 +73,10 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    const userProfile = await getUserProfile(result.user.uid);
-    if (!userProfile || userProfile.disabled) {
+    // Only block if admin explicitly disabled the account (not just expired)
+    let userProfile = null;
+    try { userProfile = await getUserProfile(result.user.uid); } catch(e) {}
+    if (userProfile?.disabled === true) {
       await signOut(auth);
       throw new Error('Tu cuenta está deshabilitada. Contacta al administrador.');
     }

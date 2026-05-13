@@ -453,7 +453,7 @@ export default function AdminPersonas() {
     const pay = sortedPayments[0]; // most recent payment = current period
     const paid = pay?.paid || false;
 
-    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments, paid, payAmount:pay?.amount||((payments.length>1?60000:80000)), totalPaid:total, role:st.role||'student', disabled:st.disabled||isExpired, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'', addedBy:st.addedBy||'' };
+    return { studentId:st.id, displayName:st.name, whatsapp:st.whatsapp, email:st.email||'', startDate:st.startDate, expiresAt, isExpired, daysLeft, expiresLabel, accountId:st.accountId, accountEmail:acc?.email||'—', payments, paid, payAmount:pay?.amount||((payments.length>1?60000:80000)), totalPaid:total, role:st.role||'student', disabled:st.disabled||false, uid:st.uid||null, courseIds:st.courseIds||[], accessPassword:st.accessPassword||'', addedBy:st.addedBy||'' };
   });
 
   const filtered = persons.filter(p=>{

@@ -53,6 +53,7 @@ export default function StudentDashboard() {
   const [courses, setCourses] = useState([]);
   const [progressMap, setProgressMap] = useState({});
   const [account, setAccount] = useState(null); // student's Gemini account
+  const [studentData, setStudentData] = useState(null); // RTDB student record
   const [copiedField, setCopiedField] = useState(null);
   const pollRef = useRef(null);
 
@@ -71,6 +72,7 @@ export default function StudentDashboard() {
         await saveStudent({ ...me, uid: user.uid });
         me = { ...me, uid: user.uid };
       }
+      setStudentData(me);
 
       // Load account credentials
       if (me.accountId) {
@@ -212,43 +214,103 @@ export default function StudentDashboard() {
             </Link>
 
             {/* Account credentials card */}
-            <div className="card border border-white/5">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 rounded-full bg-jade-400 animate-pulse"/>
-                <h3 className="font-display font-semibold text-white text-sm">Tu cuenta actualizada</h3>
-              </div>
-              {account ? (
-                <div className="space-y-2">
-                  {/* Email */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-obsidian-700 border border-white/5">
-                    <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Correo:</span>
-                    <span className="text-xs font-mono text-slate-200 flex-1 truncate">{account.email}</span>
-                    <button onClick={() => copyField(account.email, 'email')}
-                      className={`p-1 rounded transition-colors flex-shrink-0 ${copiedField==='email'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
-                      {copiedField==='email' ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
-                    </button>
-                  </div>
-                  {/* Password */}
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-obsidian-700 border border-white/5">
-                    <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Contraseña:</span>
-                    <span className="text-xs font-mono text-slate-200 flex-1 truncate">{account.password}</span>
-                    <button onClick={() => copyField(account.password, 'password')}
-                      className={`p-1 rounded transition-colors flex-shrink-0 ${copiedField==='password'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
-                      {copiedField==='password' ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
-                    </button>
-                  </div>
-                  {/* Rules */}
-                  <div className="mt-2 p-3 rounded-lg bg-obsidian-900 border border-white/5 space-y-1.5">
-                    <p className="text-xs font-mono text-brand-400 font-semibold mb-2">📋 Reglas de uso</p>
-                    <p className="text-xs font-body text-slate-400 leading-relaxed">• Crea un proyecto con tu nombre y trabaja desde ahí</p>
-                    <p className="text-xs font-body text-slate-400 leading-relaxed">• No cambiar contraseña ni borrar proyectos</p>
-                    <p className="text-xs font-body text-slate-400 leading-relaxed">• Para generación de video usa el generador <span className="text-slate-300 font-mono">Lower priority</span></p>
-                    <p className="text-xs font-body text-slate-400 leading-relaxed">• Tienes acceso a <span className="text-brand-300 font-mono font-semibold">5.000 créditos</span> — procura no consumir de más</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs text-slate-500 font-mono">Sin cuenta asignada</div>
-              )}
+            <div className={`card border ${studentData?.expiresAt && new Date(studentData.expiresAt) < new Date() ? 'border-red-500/30 bg-red-500/5' : 'border-white/5'}`}>
+              {(() => {
+                const now = new Date(); now.setHours(0,0,0,0);
+                const exp = studentData?.expiresAt ? new Date(studentData.expiresAt) : null;
+                if (exp) exp.setHours(0,0,0,0);
+                const daysLeft = exp ? Math.round((exp - now) / 86400000) : null;
+                const isExpired = daysLeft !== null && daysLeft < 0;
+                const isExpiring = daysLeft !== null && daysLeft >= 0 && daysLeft <= 5;
+
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${isExpired ? 'bg-red-400' : isExpiring ? 'bg-amber-400 animate-pulse' : 'bg-jade-400 animate-pulse'}`}/>
+                        <h3 className="font-display font-semibold text-white text-sm">Tu cuenta actualizada</h3>
+                      </div>
+                      {daysLeft !== null && (
+                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
+                          isExpired ? 'bg-red-500/20 text-red-400' :
+                          isExpiring ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-jade-500/20 text-jade-400'
+                        }`}>
+                          {isExpired ? `Venció hace ${Math.abs(daysLeft)}d` : daysLeft === 0 ? 'Vence hoy' : `${daysLeft} días`}
+                        </span>
+                      )}
+                    </div>
+
+                    {isExpired ? (
+                      /* ── EXPIRED STATE ── */
+                      <div className="space-y-3">
+                        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
+                          <p className="text-sm font-display font-bold text-red-400 mb-1">⏰ Se cumplió tu mes</p>
+                          <p className="text-xs text-slate-400">Tu acceso sigue activo — renueva para continuar sin interrupciones</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-obsidian-900 border border-white/5 space-y-2">
+                          <p className="text-xs font-mono font-semibold text-brand-400">💳 Para renovar paga $60.000</p>
+                          <div className="space-y-1.5 mt-2">
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs">🔑</span>
+                              <div>
+                                <p className="text-xs font-mono text-slate-300 font-semibold">Nequi / Daviplata</p>
+                                <p className="text-xs font-mono text-brand-300">3144444958</p>
+                              </div>
+                              <button onClick={() => copyField('3144444958', 'nequi')}
+                                className={`ml-auto p-1 rounded ${copiedField==='nequi'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                                {copiedField==='nequi'?<Check className="w-3 h-3"/>:<Copy className="w-3 h-3"/>}
+                              </button>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs">🏦</span>
+                              <div>
+                                <p className="text-xs font-mono text-slate-300 font-semibold">Bancolombia — Alfonso Díaz</p>
+                                <p className="text-xs font-mono text-slate-400">Cuenta de ahorros</p>
+                                <p className="text-xs font-mono text-brand-300">912-777594-09</p>
+                              </div>
+                              <button onClick={() => copyField('912-777594-09', 'banco')}
+                                className={`ml-auto p-1 rounded ${copiedField==='banco'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                                {copiedField==='banco'?<Check className="w-3 h-3"/>:<Copy className="w-3 h-3"/>}
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2">Envía el comprobante a tu administrador para activar la renovación.</p>
+                        </div>
+                      </div>
+                    ) : account ? (
+                      /* ── ACTIVE STATE ── */
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-obsidian-700 border border-white/5">
+                          <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Correo:</span>
+                          <span className="text-xs font-mono text-slate-200 flex-1 truncate">{account.email}</span>
+                          <button onClick={() => copyField(account.email, 'email')}
+                            className={`p-1 rounded transition-colors flex-shrink-0 ${copiedField==='email'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                            {copiedField==='email' ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-obsidian-700 border border-white/5">
+                          <span className="text-xs text-slate-500 font-mono w-20 flex-shrink-0">Contraseña:</span>
+                          <span className="text-xs font-mono text-slate-200 flex-1 truncate">{account.password}</span>
+                          <button onClick={() => copyField(account.password, 'password')}
+                            className={`p-1 rounded transition-colors flex-shrink-0 ${copiedField==='password'?'text-jade-400':'text-slate-500 hover:text-brand-400'}`}>
+                            {copiedField==='password' ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
+                          </button>
+                        </div>
+                        <div className="mt-2 p-3 rounded-lg bg-obsidian-900 border border-white/5 space-y-1.5">
+                          <p className="text-xs font-mono text-brand-400 font-semibold mb-2">📋 Reglas de uso</p>
+                          <p className="text-xs font-body text-slate-400 leading-relaxed">• Crea un proyecto con tu nombre y trabaja desde ahí</p>
+                          <p className="text-xs font-body text-slate-400 leading-relaxed">• No cambiar contraseña ni borrar proyectos</p>
+                          <p className="text-xs font-body text-slate-400 leading-relaxed">• Para generación de video usa el generador <span className="text-slate-300 font-mono">Lower priority</span></p>
+                          <p className="text-xs font-body text-slate-400 leading-relaxed">• Tienes acceso a <span className="text-brand-300 font-mono font-semibold">5.000 créditos</span> — procura no consumir de más</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-500 font-mono">Sin cuenta asignada</div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </section>
